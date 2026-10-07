@@ -1,0 +1,43 @@
+[package]
+name = "gnerkulfloot"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Headless shop backend"
+license = "MIT"
+
+[dependencies]
+anyhow = "1"
+argon2 = "0.5"
+async-trait = "0.1"
+axum = "0.8"
+base64 = "0.22"
+clap = { version = "4", features = ["derive", "env"] }
+dashmap = "6"
+figment = { version = "0.10", features = ["toml", "env"] }
+ipnet = { version = "2", features = ["serde"] }
+iso_currency = { version = "0.7", features = ["with-serde"] }
+rpassword = "7"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "tls-rustls", "postgres", "macros", "migrate", "uuid", "time", "json"] }
+subtle = "2"
+thiserror = "2"
+time = { version = "0.3", features = ["serde", "formatting", "parsing"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "time"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["trace", "request-id", "timeout", "limit", "compression-gzip", "cors", "util"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+uuid = { version = "1", features = ["v4", "v7", "serde"] }
+
+[dev-dependencies]
+http-body-util = "0.1"
+figment = { version = "0.10", features = ["toml", "env", "test"] }
+tower = { version = "0.5", features = ["util"] }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true

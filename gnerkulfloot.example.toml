@@ -1,0 +1,37 @@
+# Copy to gnerkulfloot.toml and edit. Every key can also be set with an env var:
+# GNK__<SECTION>__<KEY>, e.g. GNK__DATABASE__URL or GNK__SERVER__BIND.
+# Env vars win over this file.
+
+[server]
+bind = "0.0.0.0:8080"
+log_format = "text"            # "text" for humans, "json" for log shippers
+request_timeout_secs = 30
+body_limit_bytes = 10485760    # 10 MiB, enough for image uploads
+cors_origins = []              # your storefront, e.g. ["https://shop.example.com"]
+migrate_on_start = true
+# Load balancers / reverse proxies in front of the app, as CIDRs. Their
+# X-Forwarded-For header is trusted for the client IP; nobody else's is.
+trusted_proxies = []           # e.g. ["10.0.0.0/8"] for a DigitalOcean VPC
+
+[database]
+url = "postgres://gnerkulfloot:gnerkulfloot@localhost:5432/gnerkulfloot"
+max_connections = 20
+
+[shop]
+name = "My Shop"
+default_currency = "MYR"       # any ISO 4217 code
+
+[auth]
+session_ttl_hours = 720        # logins last 30 days
+min_password_length = 10
+max_failed_logins = 5          # wrong passwords in a row before the account is locked…
+lockout_minutes = 15           # …for this long
+
+[setup]
+# token = "..."                # fixed first-time setup token; leave unset to generate one
+
+[rate_limit]
+enabled = true
+# Each tier allows `burst` requests at once, then refills at `per_minute`. Counted per client IP.
+global = { per_minute = 300, burst = 100 }   # every /v1 request
+auth = { per_minute = 10, burst = 5 }        # login, register, setup

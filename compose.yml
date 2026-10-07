@@ -1,0 +1,33 @@
+# Local development and single-droplet deployments.
+#   docker compose up -d --build
+# Settings come from GNK__* env vars here; see gnerkulfloot.example.toml for every key.
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      GNK__DATABASE__URL: postgres://gnerkulfloot:gnerkulfloot@postgres:5432/gnerkulfloot
+      GNK__SERVER__LOG_FORMAT: json
+      GNK__SHOP__DEFAULT_CURRENCY: ${GNK_DEFAULT_CURRENCY:-MYR}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: gnerkulfloot
+      POSTGRES_PASSWORD: gnerkulfloot
+      POSTGRES_DB: gnerkulfloot
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "gnerkulfloot"]
+      interval: 2s
+      retries: 30
+
+volumes:
+  pgdata:
