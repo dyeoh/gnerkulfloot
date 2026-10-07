@@ -27,8 +27,9 @@ company.
 | Server, config, database, migrations, health checks, Docker | ✅ working |
 | Multi-currency money type | ✅ working |
 | Admin first-time setup, logins, staff accounts, rate limiting | ✅ working |
-| Products, images (S3 / R2 / DO Spaces / local disk) | planned (next) |
-| Checkout, orders, stock reservation, tax, flat-rate shipping | planned |
+| Products, variants, per-currency prices, stock, categories, search | ✅ working |
+| Images (S3 / R2 / DO Spaces / local disk), resized to WebP | ✅ working |
+| Checkout, orders, stock reservation, tax, flat-rate shipping | planned (next) |
 | DuitNow QR payments + payment confirmation | planned |
 | Order emails and marketing campaigns | planned |
 | EasyParcel shipping, Redis (shared rate limits), OIDC login | planned |
@@ -89,14 +90,59 @@ Every key is listed there with a comment. The ones you're most likely to change:
 Log verbosity follows `RUST_LOG`, e.g. `RUST_LOG=debug` or
 `RUST_LOG=info,sqlx=warn`.
 
-### Adapters *(planned)*
-Each external service is picked with an `adapter` key in its section. This table
-fills in as adapters land.
+### Adapters
+Each external service is picked with an `adapter` key in its section.
 
-| Section | Adapters |
-|---------|----------|
-| `[storage]` | `s3` (AWS, Cloudflare R2, DigitalOcean Spaces, MinIO), `local` |
-| `[payments]` | `duitnow_qr` |
+| Section | Adapters | Status |
+|---------|----------|--------|
+| `[storage]` | `local`, `s3` (AWS S3, Cloudflare R2, DigitalOcean Spaces, MinIO, SeaweedFS…) | ✅ |
+| `[payments]` | `tng_ewallet`, `duitnow_qr` | planned |
+| `[payments.confirmation]` | `manual` | planned |
+| `[shipping]` | `flat_rate`, `easyparcel` | planned |
+| `[mail.transactional]`, `[mail.marketing]` | `smtp`, `log` | planned |
+
+### Image storage
+
+**`local`** (the default) keeps images in a folder on the server and serves them
+at `/media/…`. In Docker that folder is the `media` volume. It's the simplest
+option, but every app instance needs to see the same folder, so switch to `s3`
+before running more than one instance.
+
+```toml
+[storage]
+adapter = "local"
+path = "media"                                       # /data/media in the Docker image
+public_base_url = "https://api.example.com/media"    # absolute if the storefront is on another domain
+```
+
+**`s3`** stores images in any S3-compatible bucket, and browsers fetch them
+straight from the bucket or its CDN:
+
+```toml
+[storage]
+adapter = "s3"
+bucket = "shop-images"
+access_key_id = "..."
+secret_access_key = "..."            # better: set GNK__STORAGE__SECRET_ACCESS_KEY
+public_base_url = "https://img.example.com"
+
+# Cloudflare R2
+region = "auto"
+endpoint = "https://<account-id>.r2.cloudflarestorage.com"
+# DigitalOcean Spaces:  region = "sgp1", endpoint = "https://sgp1.digitaloceanspaces.com"
+# AWS S3:               region = "ap-southeast-1", no endpoint
+```
+
+The bucket must be **publicly readable** (or sit behind a CDN that is), because
+image URLs point straight at it. On R2 that means a custom domain or the
+r2.dev URL. On Spaces and S3 it means a public-read bucket policy or the CDN
+endpoint. Our app is the only thing that writes to it.
+
+Every uploaded image is checked by its actual content (JPEG, PNG, WebP or GIF;
+anything else is refused), rotated upright, stripped of metadata such as phone
+GPS tags, and saved as two WebP files: `large` (up to 1600 px) and `thumb` (up
+to 400 px). File names come from the image content, so files never change and
+are cached for a year, and uploading the same picture twice stores it once.
 | `[payments.confirmation]` | `manual` (official TnG/gateway APIs later) |
 | `[shipping]` | `flat_rate`, `easyparcel` |
 | `[mail.transactional]`, `[mail.marketing]` | `smtp`, `log` |
@@ -184,6 +230,60 @@ All commands accept `--config FILE`.
   currency code. RM19.90 is `{"amount": 1990, "currency": "MYR"}`. ¥500 is
   `{"amount": 500, "currency": "JPY"}`. Never send decimals.
 
+## Catalog
+
+A **product** (e.g. "Baju Kurung Moden") has one or more **variants** (SKUs, e.g.
+"Red / M"). A SKU has its own code, stock level, weight, and a price in each
+currency you sell in. Products can be in any number of **categories**, which
+can be nested.
+
+### For shoppers
+
+| Endpoint | What |
+|---|---|
+| `GET /v1/products` | active products. Query: `currency`, `q` (search), `category` (slug), `sort` (`relevance`, `newest`, `price_asc`, `price_desc`, `name`), `page`, `per_page` (max 100) |
+| `GET /v1/products/{slug}` | one product with variants, images and categories. Query: `currency` |
+| `GET /v1/categories` | all categories as a flat list, with `parent_id` for nesting |
+
+- Without `currency`, prices are in `shop.default_currency`.
+- Products are only listed in currencies they have a price in. There's no
+  automatic conversion.
+- Search matches names and descriptions, partial words, and small typos
+  ("tudng" finds "Tudung").
+- Shoppers see `in_stock: true/false`, never exact stock counts.
+- Lists return `{"items", "page", "per_page", "has_more"}`.
+
+### For staff (`/v1/admin/…`, staff or admin login)
+
+| Endpoint | What |
+|---|---|
+| `GET /v1/admin/products` | all products including drafts. Query: `status`, `q` (name, slug or SKU code), `page`, `per_page` |
+| `POST /v1/admin/products` | create: `{"name", "slug"?, "description"?, "status"?, "attributes"?, "category_ids"?}` |
+| `GET` / `PATCH /v1/admin/products/{id}` | view everything about a product / change any of the fields above |
+| `POST /v1/admin/products/{id}/skus` | add a variant: `{"code", "name"?, "options"?, "stock_available"?, "weight_g"?, "prices": [{"currency", "amount", "compare_at_amount"?}]}` |
+| `GET` / `PATCH /v1/admin/skus/{id}` | view / change a variant. Sending `prices` replaces all its prices |
+| `POST /v1/admin/skus/{id}/stock` | adjust stock: `{"delta": 5}` to add, `{"delta": -2}` to remove |
+| `POST /v1/admin/products/{id}/images` | upload an image (body = the image file). Query: `alt`, `sku_id` |
+| `PATCH` / `DELETE /v1/admin/images/{id}` | change `alt` / `position`, or remove |
+| `POST /v1/admin/categories`, `PATCH` / `DELETE /v1/admin/categories/{id}` | manage categories. `"parent_id": null` moves one to the top level |
+
+- New products start as `draft`. Set `"status": "active"` to publish, or
+  `"archived"` to hide. Products are never deleted, so old orders can still
+  point at them.
+- Slugs are made from the name if you don't give one ("Baju Kurung (Red)" →
+  `baju-kurung-red`).
+- **Stock only moves by adjustments**, never by setting a number. The stock
+  figure already has units held by unpaid orders taken off, so overwriting it
+  after a recount would release those holds and oversell. To correct after a
+  recount, adjust by the difference.
+
+Uploading an image:
+
+```sh
+curl -X POST "localhost:8080/v1/admin/products/$PRODUCT_ID/images?alt=Front%20view" \
+  -H "authorization: Bearer $TOKEN" -H "content-type: image/jpeg" --data-binary @photo.jpg
+```
+
 ## Deployment
 
 ### Single droplet / any Docker host
@@ -192,15 +292,17 @@ Copy the repo (or just `compose.yml` + `Dockerfile`) to the server and run
 first, or point `GNK__DATABASE__URL` at a managed database (e.g. DigitalOcean
 Managed Postgres) and remove the `postgres` service.
 
-The container is ~56 MB, runs as a non-root user, and stops cleanly on
-`docker stop`: in-flight requests finish first.
+The container is ~65 MB, runs as a non-root user, and stops cleanly on
+`docker stop`: in-flight requests finish first. With local image storage,
+images live in the `media` volume; back it up along with the database.
 
 ### Bare metal with systemd, load balancing, scaling out *(planned)*
 Coming with the deployment phase: a hardened systemd unit, Caddy and nginx
 load-balancer configs, and a DigitalOcean Load Balancer recipe.
 
-Every instance is stateless, so you can already run several copies against the
-same database. Migrations are safe to run from many instances at once.
+With `s3` image storage every instance is stateless, so you can already run
+several copies against the same database. Migrations are safe to run from many
+instances at once.
 
 ## Development
 
@@ -221,6 +323,10 @@ After adding or changing a SQL query, run `cargo sqlx prepare -- --all-targets`
 and commit the `.sqlx/` folder. That's what lets Docker builds check queries
 without a database.
 
+To try the `s3` storage adapter without a cloud account, `docker compose --profile s3 up`
+starts a local S3-compatible bucket (SeaweedFS). `compose.yml` has the matching
+`GNK__STORAGE__*` settings commented out, ready to switch on.
+
 To run the server locally against that database:
 
 ```sh
@@ -232,6 +338,17 @@ decisions, naming conventions and patterns the codebase follows.
 
 ## Troubleshooting
 
+- **Images upload but don't show on the storefront**: the image URLs are built
+  from `storage.public_base_url`. With `local` storage and a storefront on
+  another domain, make it absolute (`https://api.example.com/media`). With
+  `s3`, check that the URL is publicly readable: open one in a private browser
+  window.
+- **Upload returns 415**: the file isn't a JPEG, PNG, WebP or GIF, whatever its
+  name or Content-Type says.
+- **Upload returns 413**: the file is larger than `server.body_limit_bytes`
+  (10 MiB by default).
+- **A product doesn't appear in the shop**: it must be `active`, have at least
+  one active variant, and have a price in the currency being requested.
 - **Everyone gets rate-limited at once behind a load balancer**: the app sees
   the proxy as the client. Add the proxy's address range to
   `server.trusted_proxies`.

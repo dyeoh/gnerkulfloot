@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM sku_prices WHERE sku_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "39c99edf9c6063ccd2d4610ebdb51bb3df6302c654ded38325df51f56b3f47f4"
+}

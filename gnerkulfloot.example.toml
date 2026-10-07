@@ -35,3 +35,18 @@ enabled = true
 # Each tier allows `burst` requests at once, then refills at `per_minute`. Counted per client IP.
 global = { per_minute = 300, burst = 100 }   # every /v1 request
 auth = { per_minute = 10, burst = 5 }        # login, register, setup
+
+[storage]
+# Where uploaded images go. "local" (a folder, served at /media) or "s3" (any
+# S3-compatible bucket: AWS, Cloudflare R2, DigitalOcean Spaces…). See README.
+adapter = "local"
+path = "media"
+public_base_url = "/media"     # make absolute if the storefront is on another domain
+
+# adapter = "s3"
+# bucket = "shop-images"
+# region = "auto"                                          # R2: auto; Spaces: e.g. sgp1
+# endpoint = "https://<account-id>.r2.cloudflarestorage.com"
+# access_key_id = "..."
+# secret_access_key = "..."                                # or GNK__STORAGE__SECRET_ACCESS_KEY
+# public_base_url = "https://img.example.com"

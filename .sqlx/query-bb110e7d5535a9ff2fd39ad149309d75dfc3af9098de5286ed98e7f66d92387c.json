@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE product_images SET alt = COALESCE($2, alt), position = COALESCE($3, position) WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "bb110e7d5535a9ff2fd39ad149309d75dfc3af9098de5286ed98e7f66d92387c"
+}

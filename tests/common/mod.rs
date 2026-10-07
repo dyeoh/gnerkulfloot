@@ -14,7 +14,9 @@ use axum::{
 };
 use gnerkulfloot::{
     app::{self, AppState},
-    config::{AuthConfig, Config, DatabaseConfig, RateLimitConfig, ServerConfig, SetupConfig, ShopConfig},
+    config::{
+        AuthConfig, Config, DatabaseConfig, RateLimitConfig, ServerConfig, SetupConfig, ShopConfig, StorageConfig,
+    },
 };
 use http_body_util::BodyExt;
 use serde_json::Value;
@@ -35,18 +37,47 @@ pub fn config() -> Config {
             enabled: false,
             ..Default::default()
         },
+        // A fresh media directory per test, so tests never see each other's files.
+        storage: StorageConfig::Local {
+            path: std::env::temp_dir().join(format!("gnk-test-media-{}", uuid::Uuid::new_v4())),
+            public_base_url: "/media".into(),
+        },
     }
 }
 
 pub fn router(db: PgPool, config: Config) -> Router {
     // Every request appears to come from the same client IP.
-    app::router(AppState::new(db, config)).layer(MockConnectInfo(SocketAddr::from(([203, 0, 113, 7], 4000))))
+    app::router(AppState::new(db, config).unwrap()).layer(MockConnectInfo(SocketAddr::from(([203, 0, 113, 7], 4000))))
 }
 
 pub struct Res {
     pub status: StatusCode,
     pub headers: axum::http::HeaderMap,
     pub json: Value,
+}
+
+/// Sends raw bytes, e.g. an image upload.
+pub async fn send_bytes(app: &Router, path: &str, token: &str, content_type: &str, body: Vec<u8>) -> Res {
+    let req = Request::builder()
+        .method("POST")
+        .uri(path)
+        .header(header::AUTHORIZATION, format!("Bearer {token}"))
+        .header(header::CONTENT_TYPE, content_type)
+        .body(Body::from(body))
+        .unwrap();
+    into_res(app.clone().oneshot(req).await.unwrap()).await
+}
+
+/// Creates the admin through first-time setup and returns their session token.
+pub async fn admin_token(app: &Router, db: &PgPool) -> String {
+    let token = gnerkulfloot::auth::setup::token(db, &Default::default())
+        .await
+        .unwrap()
+        .unwrap();
+    let body = serde_json::json!({"token": token, "email": "admin@shop.test", "password": "correct horse battery"});
+    let res = send(app, "POST", "/v1/setup", None, Some(body)).await;
+    assert_eq!(res.status, StatusCode::CREATED, "{:?}", res.json);
+    res.json["token"].as_str().unwrap().to_owned()
 }
 
 pub async fn send(app: &Router, method: &str, path: &str, token: Option<&str>, body: Option<Value>) -> Res {

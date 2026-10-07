@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO product_categories (product_id, category_id)\n         SELECT $1, id FROM categories WHERE id = ANY($2)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b690e3854712ae033d50a9c0eafcf0c5586646fded3187652703cee8a2e39bb0"
+}

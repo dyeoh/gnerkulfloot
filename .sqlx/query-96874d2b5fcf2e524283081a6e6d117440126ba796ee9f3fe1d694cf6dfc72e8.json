@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH RECURSIVE ancestors AS (\n                   SELECT id, parent_id FROM categories WHERE id = $1\n                   UNION ALL\n                   SELECT c.id, c.parent_id FROM categories c JOIN ancestors a ON c.id = a.parent_id\n               )\n               SELECT EXISTS (SELECT 1 FROM ancestors WHERE id = $2) AS \"cycle!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "cycle!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "96874d2b5fcf2e524283081a6e6d117440126ba796ee9f3fe1d694cf6dfc72e8"
+}

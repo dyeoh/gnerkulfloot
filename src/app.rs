@@ -4,6 +4,7 @@ use std::{sync::Arc, time::Duration};
 
 use axum::{
     Router,
+    extract::DefaultBodyLimit,
     http::{HeaderName, HeaderValue, Method, StatusCode, header},
 };
 use sqlx::PgPool;
@@ -20,6 +21,7 @@ use crate::{
     config::Config,
     http,
     ratelimit::{MemoryRateLimiter, RateLimiter},
+    storage::Storage,
 };
 
 const REQUEST_ID: HeaderName = HeaderName::from_static("x-request-id");
@@ -30,19 +32,25 @@ pub struct AppState {
     pub db: PgPool,
     pub config: Arc<Config>,
     pub limiter: Arc<dyn RateLimiter>,
+    pub storage: Storage,
 }
 
 impl AppState {
     /// Builds the state, choosing adapters from config.
-    pub fn new(db: PgPool, config: Config) -> Self {
+    ///
+    /// # Errors
+    /// Fails if an adapter can't be set up, e.g. the media directory can't be created.
+    pub fn new(db: PgPool, config: Config) -> anyhow::Result<Self> {
         // Redis-backed limiting arrives with the Redis adapter; until then each
         // instance limits on its own.
         let limiter: Arc<dyn RateLimiter> = MemoryRateLimiter::new();
-        Self {
+        let storage = Storage::from_config(&config.storage)?;
+        Ok(Self {
             db,
             config: Arc::new(config),
             limiter,
-        }
+            storage,
+        })
     }
 }
 
@@ -66,6 +74,9 @@ pub fn router(state: AppState) -> Router {
         .with_state(state.clone())
         .layer(CompressionLayer::new())
         .layer(cors(&state.config.server.cors_origins))
+        // `server.body_limit_bytes` is the one body limit; axum's own 2 MB default
+        // for extractors would otherwise reject ordinary phone photos.
+        .layer(DefaultBodyLimit::disable())
         .layer(RequestBodyLimitLayer::new(server.body_limit_bytes))
         .layer(TimeoutLayer::with_status_code(
             StatusCode::REQUEST_TIMEOUT,

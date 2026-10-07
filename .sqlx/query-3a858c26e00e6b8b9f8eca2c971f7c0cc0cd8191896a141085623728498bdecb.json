@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO product_images (id, product_id, sku_id, key_prefix, width, height, alt, position)\n         VALUES ($1, $2, $3, $4, $5, $6, $7,\n                 (SELECT COALESCE(MAX(position) + 1, 0) FROM product_images WHERE product_id = $2))\n         RETURNING id, position",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "position",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Int4",
+        "Int4",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "3a858c26e00e6b8b9f8eca2c971f7c0cc0cd8191896a141085623728498bdecb"
+}

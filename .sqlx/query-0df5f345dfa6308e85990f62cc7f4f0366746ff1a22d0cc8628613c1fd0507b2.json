@@ -1,0 +1,59 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT s.id, s.code, s.name, s.options, s.stock_available, sp.price_amount AS \"price_amount?\",\n                sp.compare_at_amount\n         FROM skus s LEFT JOIN sku_prices sp ON sp.sku_id = s.id AND sp.price_currency = $2\n         WHERE s.product_id = $1 AND s.active\n         ORDER BY s.position, s.created_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "code",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "options",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 4,
+        "name": "stock_available",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "price_amount?",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 6,
+        "name": "compare_at_amount",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bpchar"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "0df5f345dfa6308e85990f62cc7f4f0366746ff1a22d0cc8628613c1fd0507b2"
+}

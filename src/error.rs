@@ -21,6 +21,8 @@ pub enum AppError {
     Forbidden,
     #[error("{0}")]
     Conflict(String),
+    #[error("{0}")]
+    UnsupportedMediaType(String),
     #[error("too many requests")]
     RateLimited { retry_after_secs: u64 },
     #[error(transparent)]
@@ -55,6 +57,7 @@ impl AppError {
             AppError::Unauthorized => StatusCode::UNAUTHORIZED,
             AppError::Forbidden => StatusCode::FORBIDDEN,
             AppError::Conflict(_) => StatusCode::CONFLICT,
+            AppError::UnsupportedMediaType(_) => StatusCode::UNSUPPORTED_MEDIA_TYPE,
             AppError::RateLimited { .. } => StatusCode::TOO_MANY_REQUESTS,
             AppError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
@@ -65,7 +68,9 @@ impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         let status = self.status();
         let detail = match &self {
-            AppError::BadRequest(msg) | AppError::Conflict(msg) => Some(msg.clone()),
+            AppError::BadRequest(msg) | AppError::Conflict(msg) | AppError::UnsupportedMediaType(msg) => {
+                Some(msg.clone())
+            }
             AppError::Internal(err) => {
                 // Logged inside the request span, so the log line carries the request id
                 // the client sees in `x-request-id`.

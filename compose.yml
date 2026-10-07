@@ -11,6 +11,18 @@ services:
       GNK__DATABASE__URL: postgres://gnerkulfloot:gnerkulfloot@postgres:5432/gnerkulfloot
       GNK__SERVER__LOG_FORMAT: json
       GNK__SHOP__DEFAULT_CURRENCY: ${GNK_DEFAULT_CURRENCY:-MYR}
+      # Images are stored in the `media` volume by default. To use the local
+      # S3-compatible bucket below instead, start with `--profile s3` and uncomment:
+      # GNK__STORAGE__ADAPTER: s3
+      # GNK__STORAGE__BUCKET: media
+      # GNK__STORAGE__REGION: us-east-1
+      # GNK__STORAGE__ENDPOINT: http://s3:8333
+      # GNK__STORAGE__ALLOW_HTTP: "true"
+      # GNK__STORAGE__ACCESS_KEY_ID: gnerkulfloot
+      # GNK__STORAGE__SECRET_ACCESS_KEY: gnerkulfloot-secret
+      # GNK__STORAGE__PUBLIC_BASE_URL: http://localhost:8333/media
+    volumes:
+      - media:/data/media
     depends_on:
       postgres:
         condition: service_healthy
@@ -29,5 +41,44 @@ services:
       interval: 2s
       retries: 30
 
+  # Local S3-compatible bucket (SeaweedFS) for trying the s3 adapter without a
+  # cloud account. Like a CDN-backed bucket: the app writes with its keys,
+  # anyone can read.
+  s3:
+    image: chrislusf/seaweedfs
+    profiles: [s3]
+    command: server -dir=/data -s3 -s3.port=8333 -s3.config=/etc/seaweedfs/s3.json
+    ports:
+      - "8333:8333"
+    configs:
+      - source: s3-identities
+        target: /etc/seaweedfs/s3.json
+    volumes:
+      - s3data:/data
+
+  # Creates the `media` bucket once the store is up.
+  s3-init:
+    image: curlimages/curl
+    profiles: [s3]
+    depends_on: [s3]
+    entrypoint:
+      - sh
+      - -c
+      - |
+        until curl -s -o /dev/null http://s3:8333; do sleep 1; done; sleep 2
+        curl -sf --aws-sigv4 aws:amz:us-east-1:s3 --user gnerkulfloot:gnerkulfloot-secret -X PUT http://s3:8333/media
+
+configs:
+  s3-identities:
+    content: |
+      {"identities": [
+        {"name": "anonymous", "actions": ["Read"]},
+        {"name": "gnerkulfloot",
+         "credentials": [{"accessKey": "gnerkulfloot", "secretKey": "gnerkulfloot-secret"}],
+         "actions": ["Admin", "Read", "Write", "List", "Tagging"]}
+      ]}
+
 volumes:
   pgdata:
+  media:
+  s3data:

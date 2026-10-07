@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE skus SET\n             code       = COALESCE($2, code),\n             name       = COALESCE($3, name),\n             options    = COALESCE($4, options),\n             weight_g   = COALESCE($5, weight_g),\n             active     = COALESCE($6, active),\n             position   = COALESCE($7, position),\n             updated_at = now()\n         WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Jsonb",
+        "Int4",
+        "Bool",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "24ab3ef9dfdb27cb4b3ed07fb96f0c7480b5686876e51def1fa177b9b69ef533"
+}

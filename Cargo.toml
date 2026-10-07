@@ -12,11 +12,14 @@ argon2 = "0.5"
 async-trait = "0.1"
 axum = "0.8"
 base64 = "0.22"
+bytes = "1"
 clap = { version = "4", features = ["derive", "env"] }
 dashmap = "6"
 figment = { version = "0.10", features = ["toml", "env"] }
 ipnet = { version = "2", features = ["serde"] }
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp", "gif", "rayon"] }
 iso_currency = { version = "0.7", features = ["with-serde"] }
+object_store = { version = "0.12", features = ["aws"] }
 rpassword = "7"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -27,12 +30,14 @@ thiserror = "2"
 time = { version = "0.3", features = ["serde", "formatting", "parsing"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "time"] }
 tower = "0.5"
-tower-http = { version = "0.6", features = ["trace", "request-id", "timeout", "limit", "compression-gzip", "cors", "util"] }
+tower-http = { version = "0.6", features = ["trace", "request-id", "timeout", "limit", "compression-gzip", "cors", "util", "fs", "set-header"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 uuid = { version = "1", features = ["v4", "v7", "serde"] }
+webp = { version = "0.3", default-features = false }
 
 [dev-dependencies]
+image = { version = "0.25", default-features = false, features = ["png", "webp"] }
 http-body-util = "0.1"
 figment = { version = "0.10", features = ["toml", "env", "test"] }
 tower = { version = "0.5", features = ["util"] }

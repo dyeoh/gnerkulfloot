@@ -14,11 +14,16 @@ COPY . .
 # Compile-time-checked queries read .sqlx/ instead of needing a live database.
 ENV SQLX_OFFLINE=true
 RUN cargo build --release --bin gnerkulfloot
+# Media directory for the local storage adapter, owned by distroless's nonroot
+# user (65532). A volume mounted here inherits this ownership.
+RUN mkdir -p /data/media
 
 # Distroless: no shell, no package manager, runs as non-root. Migrations are
 # embedded in the binary, so it is the only file we need.
 FROM gcr.io/distroless/cc-debian12:nonroot
 COPY --from=builder /app/target/release/gnerkulfloot /usr/local/bin/gnerkulfloot
+COPY --from=builder --chown=65532:65532 /data /data
+ENV GNK__STORAGE__PATH=/data/media
 EXPOSE 8080
 ENTRYPOINT ["/usr/local/bin/gnerkulfloot"]
 CMD ["serve"]

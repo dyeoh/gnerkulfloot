@@ -143,7 +143,7 @@ async fn serve(config: Config) -> anyhow::Result<()> {
     }
 
     let bind = config.server.bind;
-    let state = AppState::new(pool, config);
+    let state = AppState::new(pool, config).context("setting up adapters")?;
     let listener = tokio::net::TcpListener::bind(bind)
         .await
         .with_context(|| format!("binding {bind}"))?;

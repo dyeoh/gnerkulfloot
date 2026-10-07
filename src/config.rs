@@ -3,7 +3,10 @@
 //! implementation with an `adapter` key; those sections are added as each
 //! adapter lands.
 
-use std::{net::SocketAddr, path::Path};
+use std::{
+    net::SocketAddr,
+    path::{Path, PathBuf},
+};
 
 use figment::{
     Figment,
@@ -27,6 +30,8 @@ pub struct Config {
     pub setup: SetupConfig,
     #[serde(default)]
     pub rate_limit: RateLimitConfig,
+    #[serde(default)]
+    pub storage: StorageConfig,
 }
 
 /// HTTP server behaviour.
@@ -167,6 +172,55 @@ pub struct Quota {
     pub burst: u32,
 }
 
+/// Where uploaded images are stored, picked with `adapter`. Not `Debug`: holds keys.
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(tag = "adapter", rename_all = "snake_case")]
+pub enum StorageConfig {
+    /// A directory on this server, served by the app at `/media`. Fine for one
+    /// instance; with several, use `s3` so every instance sees every image.
+    Local {
+        #[serde(default = "default_media_path")]
+        path: PathBuf,
+        /// Where browsers fetch files from. Make it absolute (`https://api.example.com/media`)
+        /// when the storefront runs on another domain.
+        #[serde(default = "default_media_url")]
+        public_base_url: String,
+    },
+    /// Any S3-compatible bucket: AWS S3, Cloudflare R2, DigitalOcean Spaces, MinIO.
+    S3 {
+        bucket: String,
+        /// `auto` for R2; the datacenter (e.g. `sgp1`) for DO Spaces.
+        region: String,
+        /// Leave unset for AWS. R2: `https://<account>.r2.cloudflarestorage.com`.
+        /// Spaces: `https://<region>.digitaloceanspaces.com`.
+        endpoint: Option<String>,
+        access_key_id: String,
+        secret_access_key: String,
+        /// Public URL of the bucket or its CDN; image URLs are built from it.
+        public_base_url: String,
+        /// Needed for MinIO over plain http in development.
+        #[serde(default)]
+        allow_http: bool,
+    },
+}
+
+fn default_media_path() -> PathBuf {
+    PathBuf::from("media")
+}
+
+fn default_media_url() -> String {
+    "/media".into()
+}
+
+impl Default for StorageConfig {
+    fn default() -> Self {
+        StorageConfig::Local {
+            path: default_media_path(),
+            public_base_url: default_media_url(),
+        }
+    }
+}
+
 impl Config {
     /// Loads defaults, then the TOML file at `path` if it exists, then `GNK__*` env vars.
     ///
@@ -175,6 +229,9 @@ impl Config {
     /// `database.url`) is missing from every source.
     pub fn load(path: &Path) -> Result<Self, Box<figment::Error>> {
         Figment::from(Serialized::default("server", ServerConfig::default()))
+            // Lets a deployment set a single storage key (e.g. GNK__STORAGE__PATH)
+            // without also having to say `adapter = "local"`.
+            .merge(Serialized::default("storage.adapter", "local"))
             .merge(Toml::file(path))
             .merge(Env::prefixed("GNK__").split("__"))
             .extract()
@@ -197,6 +254,40 @@ mod tests {
             assert_eq!(cfg.database.url, "postgres://x");
             assert_eq!(cfg.server.bind.port(), 9000);
             assert_eq!(cfg.shop.default_currency, Currency::MYR);
+            Ok(())
+        });
+    }
+
+    #[test]
+    #[allow(clippy::result_large_err)]
+    fn storage_adapter_defaults_to_local_when_only_some_keys_are_set() {
+        figment::Jail::expect_with(|jail| {
+            jail.set_env("GNK__DATABASE__URL", "postgres://x");
+            jail.set_env("GNK__STORAGE__PATH", "/data/media");
+            let cfg = Config::load(Path::new("missing.toml")).unwrap();
+            assert!(matches!(cfg.storage, StorageConfig::Local { ref path, .. } if path == Path::new("/data/media")));
+            Ok(())
+        });
+    }
+
+    #[test]
+    #[allow(clippy::result_large_err)]
+    fn storage_can_switch_to_s3_from_env() {
+        figment::Jail::expect_with(|jail| {
+            jail.set_env("GNK__DATABASE__URL", "postgres://x");
+            jail.set_env("GNK__STORAGE__PATH", "/data/media"); // left over from the image; ignored
+            for (k, v) in [
+                ("ADAPTER", "s3"),
+                ("BUCKET", "media"),
+                ("REGION", "auto"),
+                ("ACCESS_KEY_ID", "k"),
+                ("SECRET_ACCESS_KEY", "s"),
+                ("PUBLIC_BASE_URL", "https://cdn.example.com"),
+            ] {
+                jail.set_env(format!("GNK__STORAGE__{k}"), v);
+            }
+            let cfg = Config::load(Path::new("missing.toml")).unwrap();
+            assert!(matches!(cfg.storage, StorageConfig::S3 { ref bucket, .. } if bucket == "media"));
             Ok(())
         });
     }

@@ -235,6 +235,15 @@ everything into RFC 7807 `application/problem+json` responses, in one place. Don
 build error responses by hand in handlers. Never leak internal error text to
 clients. Log it, and return a generic message with the request id.
 
+**Stock.** Change `stock_available` only with relative, conditional updates
+(`SET stock_available = stock_available + $delta WHERE … AND stock_available + $delta >= 0`).
+Never write an absolute number: the column already has reserved units taken off,
+so overwriting it releases reservations and oversells.
+
+**Partial updates (PATCH).** Use `COALESCE($n, column)` for "leave alone if
+missing". For fields where `null` means "clear it", deserialize with
+`catalog::double_option` and update with `CASE WHEN $set THEN $value ELSE column END`.
+
 **Money.** Construct and combine amounts only through `Money`. If you're writing
 `amount * rate / 100` by hand, use the helper on `Money` instead.
 

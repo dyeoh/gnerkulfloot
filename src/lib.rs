@@ -4,9 +4,11 @@
 
 pub mod app;
 pub mod auth;
+pub mod catalog;
 pub mod config;
 pub mod db;
 pub mod error;
 pub mod http;
 pub mod money;
 pub mod ratelimit;
+pub mod storage;

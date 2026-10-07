@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT sku_id, price_currency, price_amount, compare_at_amount FROM sku_prices\n         WHERE sku_id = ANY($1) ORDER BY price_currency",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "sku_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "price_currency",
+        "type_info": "Bpchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "price_amount",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "compare_at_amount",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "241791d26cb9957e61632dceb1c8e1624dd0a41266afce161b5d7626749dd237"
+}
