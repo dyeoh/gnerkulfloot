@@ -19,6 +19,8 @@ use crate::{
     app::AppState,
     auth::{Role, User, users},
     catalog::storefront::{Page, paging},
+    jobs::{self, Job},
+    mail::OrderEmail,
     money::Money,
     shipping::ShippingOption,
 };
@@ -262,6 +264,17 @@ pub async fn place(
         .execute(&mut *tx)
         .await?;
     }
+
+    // Queued in this transaction: sent only if the order commits, and not lost
+    // if the server stops right after.
+    jobs::enqueue(
+        &mut tx,
+        &Job::OrderEmail {
+            order_id: id,
+            email: OrderEmail::Placed,
+        },
+    )
+    .await?;
 
     let order = load(&mut tx, id).await?;
     let body = serde_json::to_value(PlacedOrder { order, access_token }).expect("order serializes");

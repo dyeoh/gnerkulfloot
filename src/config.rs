@@ -40,6 +40,8 @@ pub struct Config {
     pub shipping: ShippingConfig,
     #[serde(default)]
     pub payments: PaymentsConfig,
+    #[serde(default)]
+    pub mail: MailConfig,
 }
 
 /// HTTP server behaviour.
@@ -338,6 +340,65 @@ pub struct HitpayConfig {
     /// Overrides the API address; only for tests.
     #[serde(default)]
     pub api_base: Option<String>,
+}
+
+/// Outgoing email.
+#[derive(Clone, Default, Deserialize, Serialize)]
+#[serde(default)]
+pub struct MailConfig {
+    /// Order and account emails. (Marketing gets its own transport later, so
+    /// bulk mail can't hurt the reputation of the address orders come from.)
+    pub transactional: MailTransportConfig,
+}
+
+/// How one kind of email is sent, picked with `adapter`. Not `Debug`: holds a password.
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(tag = "adapter", rename_all = "snake_case")]
+pub enum MailTransportConfig {
+    /// Writes emails to the log instead of sending them. For development.
+    Log {
+        #[serde(default = "default_from")]
+        from: String,
+    },
+    /// Any SMTP server: Google Workspace, Amazon SES, Mailgun, Brevo, your own…
+    Smtp {
+        host: String,
+        #[serde(default = "default_smtp_port")]
+        port: u16,
+        username: Option<String>,
+        password: Option<String>,
+        #[serde(default)]
+        security: SmtpSecurity,
+        /// e.g. `"Kuih Shop <orders@example.com>"`.
+        from: String,
+        reply_to: Option<String>,
+    },
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum SmtpSecurity {
+    /// Plain connection upgraded to TLS (port 587). What most providers expect.
+    #[default]
+    Starttls,
+    /// TLS from the first byte (port 465).
+    Tls,
+    /// No encryption. Only for a local test server such as Mailpit.
+    None,
+}
+
+fn default_from() -> String {
+    "Shop <shop@localhost>".into()
+}
+
+fn default_smtp_port() -> u16 {
+    587
+}
+
+impl Default for MailTransportConfig {
+    fn default() -> Self {
+        MailTransportConfig::Log { from: default_from() }
+    }
 }
 
 impl Config {

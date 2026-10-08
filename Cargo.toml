@@ -20,6 +20,8 @@ ipnet = { version = "2", features = ["serde"] }
 hmac = "0.12"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp", "gif", "rayon"] }
 iso_currency = { version = "0.7", features = ["with-serde"] }
+lettre = { version = "0.11", default-features = false, features = ["builder", "hostname", "smtp-transport", "tokio1", "tokio1-rustls-tls"] }
+minijinja = "2"
 object_store = { version = "0.12", features = ["aws"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 rpassword = "7"

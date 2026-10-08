@@ -21,6 +21,14 @@ services:
       # GNK__STORAGE__ACCESS_KEY_ID: gnerkulfloot
       # GNK__STORAGE__SECRET_ACCESS_KEY: gnerkulfloot-secret
       # GNK__STORAGE__PUBLIC_BASE_URL: http://localhost:8333/media
+      # Emails are only logged by default. To send them to the local Mailpit
+      # inbox below, start with `--profile mail`, uncomment, and open
+      # http://localhost:8025 to read them:
+      # GNK__MAIL__TRANSACTIONAL__ADAPTER: smtp
+      # GNK__MAIL__TRANSACTIONAL__HOST: mailpit
+      # GNK__MAIL__TRANSACTIONAL__PORT: "1025"
+      # GNK__MAIL__TRANSACTIONAL__SECURITY: none
+      # GNK__MAIL__TRANSACTIONAL__FROM: "Shop <orders@shop.test>"
     volumes:
       - media:/data/media
     depends_on:
@@ -40,6 +48,13 @@ services:
       test: ["CMD", "pg_isready", "-U", "gnerkulfloot"]
       interval: 2s
       retries: 30
+
+  # Catches every email sent to it and shows it at http://localhost:8025.
+  mailpit:
+    image: axllent/mailpit
+    profiles: [mail]
+    ports:
+      - "8025:8025"
 
   # Local S3-compatible bucket (SeaweedFS) for trying the s3 adapter without a
   # cloud account. Like a CDN-backed bucket: the app writes with its keys,

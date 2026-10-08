@@ -20,6 +20,7 @@ use tower_http::{
 use crate::{
     config::Config,
     http,
+    mail::{self, MailAdapter},
     payments::{self, PaymentAdapter},
     ratelimit::{MemoryRateLimiter, RateLimiter},
     shipping::{self, ShippingAdapter},
@@ -38,6 +39,8 @@ pub struct AppState {
     pub shipping: Arc<[Arc<dyn ShippingAdapter>]>,
     /// `None` when online payments aren't configured.
     pub payments: Option<Arc<dyn PaymentAdapter>>,
+    /// Order and account emails.
+    pub mail: Arc<dyn MailAdapter>,
 }
 
 impl AppState {
@@ -52,6 +55,7 @@ impl AppState {
         let storage = Storage::from_config(&config.storage)?;
         let shipping = shipping::from_config(&config.shipping.adapters, &db).into();
         let payments = payments::from_config(&config.payments);
+        let mail = mail::from_config(&config.mail.transactional)?;
         Ok(Self {
             db,
             config: Arc::new(config),
@@ -59,6 +63,7 @@ impl AppState {
             storage,
             shipping,
             payments,
+            mail,
         })
     }
 }

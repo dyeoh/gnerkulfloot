@@ -10,6 +10,8 @@ pub mod config;
 pub mod db;
 pub mod error;
 pub mod http;
+pub mod jobs;
+pub mod mail;
 pub mod money;
 pub mod payments;
 pub mod ratelimit;

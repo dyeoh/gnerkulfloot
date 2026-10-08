@@ -62,6 +62,18 @@ adapter = "none"
 # payment_methods = ["duitnow", "touch_n_go", "card"]
 # return_url = "https://shop.example.com/orders/{order_id}"
 
+[mail.transactional]
+# Order emails. "log" only writes them to the log (development); "smtp" sends them.
+adapter = "log"
+from = "Kuih Shop <orders@example.com>"
+# adapter = "smtp"
+# host = "smtp.gmail.com"        # Google Workspace with an app password; see README → Email
+# port = 587
+# security = "starttls"          # "tls" for port 465, "none" for a local test server
+# username = "orders@example.com"
+# password = "..."               # or GNK__MAIL__TRANSACTIONAL__PASSWORD
+# reply_to = "hello@example.com"
+
 [storage]
 # Where uploaded images go. "local" (a folder, served at /media) or "s3" (any
 # S3-compatible bucket: AWS, Cloudflare R2, DigitalOcean Spaces…). See README.

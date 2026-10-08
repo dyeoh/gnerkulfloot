@@ -31,7 +31,8 @@ company.
 | Images (S3 / R2 / DO Spaces / local disk), resized to WebP | ✅ working |
 | Checkout, orders, stock holds, tax rules, flat-rate shipping | ✅ working |
 | Online payments via HitPay (DuitNow QR, Touch 'n Go, cards), staff mark-paid | ✅ working |
-| Order emails and marketing campaigns | planned (next) |
+| Order emails ("order received", "payment received") over any SMTP server | ✅ working |
+| Marketing campaigns | planned |
 | EasyParcel shipping, Redis (shared rate limits), OIDC login | planned |
 | systemd unit, Caddy/nginx load balancer configs | planned |
 
@@ -103,7 +104,8 @@ Each external service is picked with an `adapter` key in its section.
 | `[payments]` | `hitpay` (see [Payments](#payments)), or `none` (staff mark orders paid) | ✅ |
 | `[shipping]` | `adapters = ["flat_rate"]`: rates you manage yourself (see [Checkout](#checkout-and-orders)) | ✅ |
 | `[shipping]` | `easyparcel` | planned |
-| `[mail.transactional]`, `[mail.marketing]` | `smtp`, `log` | planned |
+| `[mail.transactional]` | `smtp` (Google Workspace, SES, Brevo…, see [Email](#email)), `log` (development) | ✅ |
+| `[mail.marketing]` | `smtp` | planned |
 
 ### Image storage
 
@@ -472,6 +474,70 @@ up. With `[payments] adapter = "none"`, it's the only way orders get paid.
 | 409 | `order_not_payable` | the order isn't awaiting payment any more (paid, expired, cancelled) |
 | 502 | `payment_provider_error` | HitPay couldn't be reached or refused the request; try again |
 
+## Email
+
+The shop emails customers when they **place an order** and when their
+**payment is received**. Emails are sent by the background worker from a
+queue in the database. They go out within a few seconds, survive restarts,
+and are retried with growing delays (30 s, 1 min, 2 min… up to an hour, 8
+attempts) if the mail server is down.
+
+Out of the box the `log` adapter only writes emails to the log. To really send
+them, configure SMTP:
+
+```toml
+[mail.transactional]
+adapter = "smtp"
+host = "smtp.gmail.com"
+port = 587
+security = "starttls"            # "tls" for port 465; "none" only for a local test server
+username = "orders@example.com"
+password = "..."                  # better: GNK__MAIL__TRANSACTIONAL__PASSWORD
+from = "Kuih Shop <orders@example.com>"
+reply_to = "hello@example.com"    # optional
+```
+
+If the `[mail.transactional]` section is there but `adapter` is missing, the
+app refuses to start. That way a typo can't silently stop customer emails.
+
+### With Google Workspace
+
+Two ways to send through Workspace:
+
+- **Simplest: an app password.** Use (or create) a mailbox such as
+  `orders@yourdomain`, turn on 2-Step Verification for it, create an app
+  password in its Google Account (Security → App passwords), and use
+  `host = "smtp.gmail.com"`, `port = 587`, that address as `username`, and the
+  app password as `password`. Google limits this to about 2,000 emails a day per
+  mailbox, plenty for order emails.
+- **SMTP relay** (Admin console → Apps → Google Workspace → Gmail → Routing →
+  SMTP relay service) with `host = "smtp-relay.gmail.com"`. It has higher limits
+  and can authenticate by your server's IP address. Use it if you outgrow app
+  passwords.
+
+Don't send marketing newsletters through Workspace: Google's limits and rules
+are made for person-to-person mail. Marketing gets its own transport later.
+
+### DNS records (Cloudflare)
+
+Without these, your emails will often land in spam. In Cloudflare → your domain →
+DNS, add (all **DNS only**, not proxied):
+
+| Type | Name | Content | Purpose |
+|---|---|---|---|
+| TXT | `@` | `v=spf1 include:_spf.google.com ~all` | SPF: Google may send for your domain. If you already have an SPF record, add `include:_spf.google.com` to it rather than adding a second one. |
+| TXT | `google._domainkey` | *(generated in Admin console → Apps → Google Workspace → Gmail → Authenticate email)* | DKIM: signs your emails. After adding it, press **Start authentication** in the Admin console. |
+| TXT | `_dmarc` | `v=DMARC1; p=none; rua=mailto:dmarc@yourdomain` | DMARC: tells receivers what to do with failures and sends you reports. Tighten to `p=quarantine` once reports look clean. |
+
+Check the result by sending yourself an order email and opening "Show original"
+in Gmail: SPF, DKIM and DMARC should all say `PASS`.
+
+### Trying it locally
+
+`docker compose --profile mail up` starts **Mailpit**, a local inbox that catches
+every email. Uncomment the `GNK__MAIL__…` lines in `compose.yml`, and read the
+emails at http://localhost:8025.
+
 ## Deployment
 
 ### Single droplet / any Docker host
@@ -526,6 +592,11 @@ decisions, naming conventions and patterns the codebase follows.
 
 ## Troubleshooting
 
+- **Customers don't get emails**: check the log for `job failed; will retry`
+  and its error. `535 … Username and Password not accepted` means the app
+  password or username is wrong. Emails that keep failing are kept in the `jobs`
+  table with `failed_at` and `last_error` set. If emails arrive but go to spam,
+  check the [DNS records](#dns-records-cloudflare).
 - **Orders stay `pending_payment` after paying**: check the webhook is
   registered in HitPay for `payment_request.completed` and is reachable from the
   internet. Logs show `webhook signature is missing or wrong` (and HitPay sees

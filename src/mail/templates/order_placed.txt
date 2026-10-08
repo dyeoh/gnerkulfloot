@@ -1,0 +1,25 @@
+Hi {{ name }},
+
+Thanks for your order! Here's what we received.
+
+Order #{{ number }}
+{% for line in lines %}
+  {{ line.quantity }} × {{ line.name }}    {{ line.subtotal }}
+{%- endfor %}
+
+  Subtotal    {{ subtotal }}
+  Shipping ({{ shipping_name }})    {{ shipping }}
+  {{ tax_name }}{% if tax_included %} (included){% endif %}    {{ tax }}
+  Total    {{ total }}
+
+Shipping to:
+{{ address }}
+
+{% if awaiting_payment -%}
+We'll hold your items for {{ pay_within }} while we wait for your payment, and
+email you again as soon as it's confirmed.
+{%- endif %}
+
+If anything looks wrong, just reply to this email.
+
+{{ shop }}

@@ -42,11 +42,17 @@ pub fn config() -> Config {
         tax: Default::default(),
         shipping: Default::default(),
         payments: Default::default(),
+        mail: Default::default(),
         storage: StorageConfig::Local {
             path: std::env::temp_dir().join(format!("gnk-test-media-{}", uuid::Uuid::new_v4())),
             public_base_url: "/media".into(),
         },
     }
+}
+
+/// The router for an already-built state, e.g. one with a test mail adapter swapped in.
+pub fn router_for(state: AppState) -> Router {
+    app::router(state).layer(MockConnectInfo(SocketAddr::from(([203, 0, 113, 7], 4000))))
 }
 
 pub fn router(db: PgPool, config: Config) -> Router {

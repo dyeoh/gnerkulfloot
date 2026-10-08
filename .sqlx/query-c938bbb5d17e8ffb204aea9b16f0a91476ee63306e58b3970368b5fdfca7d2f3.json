@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO jobs (id, kind, payload, dedupe_key) VALUES ($1, $2, $3, $4)\n         ON CONFLICT (dedupe_key) DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Jsonb",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c938bbb5d17e8ffb204aea9b16f0a91476ee63306e58b3970368b5fdfca7d2f3"
+}

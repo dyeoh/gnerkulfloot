@@ -1,0 +1,14 @@
+Hi {{ name }},
+
+We've received your payment of {{ total }} for order #{{ number }}. Thank you!
+We're getting it ready and will let you know when it ships.
+{% for line in lines %}
+  {{ line.quantity }} × {{ line.name }}
+{%- endfor %}
+
+Shipping to:
+{{ address }}
+
+If you have any questions, just reply to this email.
+
+{{ shop }}

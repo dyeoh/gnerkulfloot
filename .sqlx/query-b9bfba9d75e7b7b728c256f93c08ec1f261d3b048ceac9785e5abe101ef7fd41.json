@@ -1,0 +1,59 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE jobs SET locked_until = now() + make_interval(secs => $1), attempts = attempts + 1\n         WHERE id IN (\n             SELECT id FROM jobs\n             WHERE completed_at IS NULL AND failed_at IS NULL AND run_at <= now()\n               AND (locked_until IS NULL OR locked_until < now())\n             ORDER BY run_at LIMIT $2\n             FOR UPDATE SKIP LOCKED\n         )\n         RETURNING id, kind, payload, attempts, max_attempts, run_at, created_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "kind",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "payload",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 3,
+        "name": "attempts",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "max_attempts",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "run_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 6,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Float8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "b9bfba9d75e7b7b728c256f93c08ec1f261d3b048ceac9785e5abe101ef7fd41"
+}

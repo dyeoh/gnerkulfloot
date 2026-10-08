@@ -230,7 +230,24 @@ record idempotency key all commit together or not at all.
 
 **Background work goes through the `jobs` table**, not `tokio::spawn`. A spawned
 task dies with its instance; a job row survives restarts and is picked up by
-whichever instance is free (`FOR UPDATE SKIP LOCKED`). Two exceptions:
+whichever instance is free (`FOR UPDATE SKIP LOCKED`).
+
+- **Queue jobs inside the transaction that causes them**
+  (`jobs::enqueue(&mut tx, &Job::…)`). The job then exists exactly when the
+  change does: no email for an order that rolled back, no lost email when the
+  process dies right after commit.
+- **Add a job** by adding a `Job` variant (its fields are stored as JSON, so
+  keep them backward compatible with jobs already queued), a `dedupe_key` if it
+  must only happen once, and a match arm in `jobs::run`.
+- **Jobs run at least once.** A worker that dies after doing the work but before
+  recording it means the job runs again. Make jobs harmless to repeat (an
+  occasional duplicate email is fine). Anything that moves money must not be a
+  job.
+- **Order is per batch, not global.** One worker runs a claimed batch in queue
+  order, but two workers can each claim a job at the same instant. Don't rely on
+  strict ordering between jobs.
+
+Two things deliberately don't use the queue:
 
 - **Periodic sweeps** in `worker.rs` (expiring unpaid orders, purging old
   sessions and idempotency keys). They're idempotent, each step commits

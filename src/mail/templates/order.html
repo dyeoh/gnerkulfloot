@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+<body style="margin:0;padding:24px;background:#f6f6f6;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#222">
+  <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:8px;padding:24px">
+    <p>Hi {{ name }},</p>
+    {% if paid %}
+    <p>We've received your payment of <strong>{{ total }}</strong> for order <strong>#{{ number }}</strong>. Thank you! We're getting it ready and will let you know when it ships.</p>
+    {% else %}
+    <p>Thanks for your order! Here's what we received for order <strong>#{{ number }}</strong>.</p>
+    {% endif %}
+    <table style="width:100%;border-collapse:collapse;margin:16px 0">
+      {% for line in lines %}
+      <tr>
+        <td style="padding:6px 0;border-bottom:1px solid #eee">{{ line.quantity }} × {{ line.name }}</td>
+        <td style="padding:6px 0;border-bottom:1px solid #eee;text-align:right">{{ line.subtotal }}</td>
+      </tr>
+      {% endfor %}
+      <tr><td style="padding:6px 0">Subtotal</td><td style="padding:6px 0;text-align:right">{{ subtotal }}</td></tr>
+      <tr><td style="padding:6px 0">Shipping ({{ shipping_name }})</td><td style="padding:6px 0;text-align:right">{{ shipping }}</td></tr>
+      <tr><td style="padding:6px 0">{{ tax_name }}{% if tax_included %} (included){% endif %}</td><td style="padding:6px 0;text-align:right">{{ tax }}</td></tr>
+      <tr><td style="padding:6px 0"><strong>Total</strong></td><td style="padding:6px 0;text-align:right"><strong>{{ total }}</strong></td></tr>
+    </table>
+    <p style="white-space:pre-line"><strong>Shipping to:</strong>
+{{ address }}</p>
+    {% if awaiting_payment %}
+    <p>We'll hold your items for {{ pay_within }} while we wait for your payment, and email you again as soon as it's confirmed.</p>
+    {% endif %}
+    <p>If anything looks wrong, just reply to this email.</p>
+    <p>{{ shop }}</p>
+  </div>
+</body>
+</html>

@@ -30,6 +30,8 @@ use crate::{
     },
     config::PaymentsConfig,
     error::AppError,
+    jobs::{self, Job},
+    mail::OrderEmail,
     money::Money,
 };
 
@@ -452,6 +454,14 @@ async fn settle(conn: &mut PgConnection, order_id: Uuid, via: &str) -> Result<()
         via
     )
     .execute(&mut *conn)
+    .await?;
+    jobs::enqueue(
+        conn,
+        &Job::OrderEmail {
+            order_id,
+            email: OrderEmail::Paid,
+        },
+    )
     .await?;
     Ok(())
 }
