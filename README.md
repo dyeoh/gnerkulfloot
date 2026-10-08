@@ -1,4 +1,6 @@
-# gnerkulfloot
+<p align="center">
+  <img src="docs/logo.png" alt="gnerkulfloot" width="320">
+</p>
 
 A headless shop backend written in Rust. It's an HTTP/JSON API with no built-in
 storefront. You bring the frontend (website, app, anything that can make HTTP
