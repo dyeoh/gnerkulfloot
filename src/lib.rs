@@ -11,6 +11,7 @@ pub mod db;
 pub mod error;
 pub mod http;
 pub mod money;
+pub mod payments;
 pub mod ratelimit;
 pub mod shipping;
 pub mod storage;

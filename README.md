@@ -30,8 +30,8 @@ company.
 | Products, variants, per-currency prices, stock, categories, search | ✅ working |
 | Images (S3 / R2 / DO Spaces / local disk), resized to WebP | ✅ working |
 | Checkout, orders, stock holds, tax rules, flat-rate shipping | ✅ working |
-| DuitNow QR / TnG payments + payment confirmation | planned (next) |
-| Order emails and marketing campaigns | planned |
+| Online payments via HitPay (DuitNow QR, Touch 'n Go, cards), staff mark-paid | ✅ working |
+| Order emails and marketing campaigns | planned (next) |
 | EasyParcel shipping, Redis (shared rate limits), OIDC login | planned |
 | systemd unit, Caddy/nginx load balancer configs | planned |
 
@@ -87,7 +87,7 @@ Every key is listed there with a comment. The ones you're most likely to change:
 | `auth.max_failed_logins`, `auth.lockout_minutes` | 5, 15 | Wrong passwords in a row before an account is locked, and for how long. |
 | `auth.session_ttl_hours` | 720 | How long a login lasts (30 days). |
 | `rate_limit.orders` | 10/min | Orders one IP can place. Each order holds stock, so this stops a script tying it all up. |
-| `checkout.payment_window_minutes` | 1440 | How long an unpaid order holds its stock (24 h, because payments are confirmed by hand for now). Lower it once payment confirmation is automatic. |
+| `checkout.payment_window_minutes` | 1440 | How long an unpaid order holds its stock (24 h). With online payments confirming automatically, 30–60 is plenty; keep it long if staff confirm payments by hand. |
 | `tax.prices_include_tax` | `false` | `true` if your prices already include tax (tax is then shown as "included", not added). |
 | `tax.default_rate_bp`, `tax.default_name` | 0, `Tax` | Tax when no tax rule matches the address, in hundredths of a percent (6% = 600). |
 
@@ -100,8 +100,7 @@ Each external service is picked with an `adapter` key in its section.
 | Section | Adapters | Status |
 |---------|----------|--------|
 | `[storage]` | `local`, `s3` (AWS S3, Cloudflare R2, DigitalOcean Spaces, MinIO, SeaweedFS…) | ✅ |
-| `[payments]` | `tng_ewallet`, `duitnow_qr` | planned |
-| `[payments.confirmation]` | `manual` | planned |
+| `[payments]` | `hitpay` (see [Payments](#payments)), or `none` (staff mark orders paid) | ✅ |
 | `[shipping]` | `adapters = ["flat_rate"]`: rates you manage yourself (see [Checkout](#checkout-and-orders)) | ✅ |
 | `[shipping]` | `easyparcel` | planned |
 | `[mail.transactional]`, `[mail.marketing]` | `smtp`, `log` | planned |
@@ -148,9 +147,6 @@ anything else is refused), rotated upright, stripped of metadata such as phone
 GPS tags, and saved as two WebP files: `large` (up to 1600 px) and `thumb` (up
 to 400 px). File names come from the image content, so files never change and
 are cached for a year, and uploading the same picture twice stores it once.
-| `[payments.confirmation]` | `manual` (official TnG/gateway APIs later) |
-| `[shipping]` | `flat_rate`, `easyparcel` |
-| `[mail.transactional]`, `[mail.marketing]` | `smtp`, `log` |
 
 ## First-time setup
 
@@ -386,7 +382,7 @@ address and the chosen option; anything price-like in the request is ignored.
 | Status | Meaning |
 |---|---|
 | `pending_payment` | placed, stock held, waiting for payment |
-| `paid` | payment confirmed *(arrives with payments)* |
+| `paid` | payment confirmed by the payment provider, or by staff |
 | `fulfilled` | shipped *(arrives with fulfilment)* |
 | `cancelled` | cancelled by staff before payment; stock went back on sale |
 | `expired` | not paid within `checkout.payment_window_minutes`; stock went back on sale |
@@ -395,8 +391,86 @@ Expiry is handled by background sweeps that every `serve` process runs every
 30 seconds. They're safe to run on many instances at once.
 
 Staff manage orders with `GET /v1/admin/orders` (query: `status`, `q` = order
-number or part of an email, `page`), `GET /v1/admin/orders/{id}`, and
+number or part of an email, `needs_review=true`, `page`), `GET /v1/admin/orders/{id}`
+(with its payments and any `review_reason`), and
 `POST /v1/admin/orders/{id}/cancel` for unpaid orders.
+
+## Payments
+
+Online payments use **HitPay's hosted checkout**. The shopper picks DuitNow QR
+(payable from Touch 'n Go and any Malaysian banking app), a card, or whatever
+else you enable, and pays on HitPay's page. HitPay then tells us by webhook, and
+the order turns `paid` by itself.
+
+### Setting up HitPay
+
+1. Create a HitPay account and switch on the payment methods you want.
+2. **API key:** dashboard → Settings → API Keys.
+3. **Webhook:** dashboard → Developers → Webhook Endpoints. Add
+   `https://<your api domain>/v1/payments/hitpay/webhook`, subscribe to the
+   `payment_request.completed` event, and copy that endpoint's **salt** (it's
+   not the API key's salt).
+4. Configure (start with the sandbox account and `sandbox = true`):
+
+   ```toml
+   [payments]
+   adapter = "hitpay"
+   api_key = "..."                    # better: GNK__PAYMENTS__API_KEY
+   webhook_salt = "..."               # better: GNK__PAYMENTS__WEBHOOK_SALT
+   sandbox = true                     # required: true for HitPay's sandbox, false for real money
+   payment_methods = ["duitnow", "touch_n_go", "card"]   # optional; empty = all enabled in HitPay
+   return_url = "https://shop.example.com/orders/{order_id}"   # where shoppers land after paying
+   ```
+
+   `sandbox` has no default on purpose: getting it wrong either takes test
+   payments in production or real money while testing.
+
+The webhook must be reachable from the internet. For local testing, use a
+tunnel (e.g. `cloudflared tunnel --url http://localhost:8080`) and register its URL.
+
+### Paying for an order (storefront)
+
+After placing an order, start the payment and send the shopper to `checkout_url`:
+
+```sh
+curl -X POST localhost:8080/v1/orders/$ORDER_ID/payment -H "x-order-token: $ACCESS_TOKEN"
+# → {"id": "…", "status": "pending", "checkout_url": "https://securecheckout.hit-pay.com/…", "amount": {…}}
+```
+
+Calling it again returns the same open checkout, so a double-pressed "Pay"
+button is harmless. When the shopper comes back to `return_url`, show the
+order (`GET /v1/orders/{id}`) and its status. Don't treat the return itself as
+proof of payment: the order is only `paid` once HitPay confirms it.
+
+### How payments are confirmed
+
+- A webhook is only accepted with a valid HitPay signature (forged ones get
+  `401`). Even then, we ask HitPay's API for the payment's real state and act on
+  that, never on the webhook's contents.
+- If a webhook goes missing, a background check asks HitPay again about payments
+  still pending after two minutes.
+- HitPay's checkout expires together with the order, so nobody can pay for an
+  order whose stock was already released.
+- If money arrives anyway for an expired or cancelled order, the order takes its
+  stock back and becomes `paid`, as long as the stock is still there. If it's
+  sold out, or the amount is wrong, or the order was already paid, the order gets
+  a `review_reason` and shows up under `GET /v1/admin/orders?needs_review=true`
+  for staff to refund or restock. Refunds are done in the HitPay dashboard for
+  now.
+
+### Payments outside the shop
+
+Cash or a bank transfer? Staff mark the order paid:
+`POST /v1/admin/orders/{id}/mark-paid`. This works with or without HitPay set
+up. With `[payments] adapter = "none"`, it's the only way orders get paid.
+
+**Payment errors your storefront should handle:**
+
+| Status | `code` | Meaning |
+|---|---|---|
+| 422 | `payments_disabled` | the shop has no online payments set up |
+| 409 | `order_not_payable` | the order isn't awaiting payment any more (paid, expired, cancelled) |
+| 502 | `payment_provider_error` | HitPay couldn't be reached or refused the request; try again |
 
 ## Deployment
 
@@ -452,6 +526,14 @@ decisions, naming conventions and patterns the codebase follows.
 
 ## Troubleshooting
 
+- **Orders stay `pending_payment` after paying**: check the webhook is
+  registered in HitPay for `payment_request.completed` and is reachable from the
+  internet. Logs show `webhook signature is missing or wrong` (and HitPay sees
+  `401`) when `payments.webhook_salt` isn't that endpoint's salt. Even without
+  webhooks, the background check confirms payments within a few minutes.
+- **`payment_provider_error` when starting a payment**: the logs show HitPay's
+  answer. Usually a wrong `api_key`, or a sandbox key with `sandbox = false` (or
+  the reverse).
 - **Checkout says `shipping_unavailable`**: no zone covers the address, or the
   zone has no active rate in the order's currency for that parcel weight. Check
   `GET /v1/admin/shipping/zones`.

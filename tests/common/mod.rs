@@ -41,6 +41,7 @@ pub fn config() -> Config {
         checkout: Default::default(),
         tax: Default::default(),
         shipping: Default::default(),
+        payments: Default::default(),
         storage: StorageConfig::Local {
             path: std::env::temp_dir().join(format!("gnk-test-media-{}", uuid::Uuid::new_v4())),
             public_base_url: "/media".into(),

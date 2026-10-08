@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, number, status AS \"status: OrderStatus\", email, currency, subtotal_amount, shipping_amount,\n                  tax_amount, total_amount, prices_include_tax, tax_name, tax_rate_bp, shipping_option,\n                  shipping_address, notes, expires_at, paid_at, cancelled_at, created_at\n           FROM orders WHERE id = $1",
+  "query": "SELECT id, number, status AS \"status: OrderStatus\", email, currency, subtotal_amount, shipping_amount,\n                  tax_amount, total_amount, prices_include_tax, tax_name, tax_rate_bp, shipping_option,\n                  shipping_address, notes, paid_via, expires_at, paid_at, cancelled_at, created_at\n           FROM orders WHERE id = $1",
   "describe": {
     "columns": [
       {
@@ -80,21 +80,26 @@
       },
       {
         "ordinal": 15,
+        "name": "paid_via",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 16,
         "name": "expires_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 16,
+        "ordinal": 17,
         "name": "paid_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 17,
+        "ordinal": 18,
         "name": "cancelled_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 18,
+        "ordinal": 19,
         "name": "created_at",
         "type_info": "Timestamptz"
       }
@@ -120,11 +125,12 @@
       false,
       false,
       false,
+      true,
       false,
       true,
       true,
       false
     ]
   },
-  "hash": "f7a105bc9da093de00759d5f5dc6bf96b25f8960ca434f5d6da7f94d65e08147"
+  "hash": "15a1ce4509dcbc97f608db4e5fe34e7c4585ceafefebede851cae834b74d2fc2"
 }

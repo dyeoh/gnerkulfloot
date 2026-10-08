@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT adapter, provider_ref, currency FROM payments WHERE id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "adapter",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "provider_ref",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "currency",
+        "type_info": "Bpchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "c67a3c5e956197cdbcc559743424f21a7d8a7e2ce87652d69ac24315f2e648b4"
+}

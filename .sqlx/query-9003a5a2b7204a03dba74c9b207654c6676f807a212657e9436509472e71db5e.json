@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id FROM payments WHERE order_id = $1 AND adapter = $2 AND status = 'pending'\n           AND requested_amount = $3 ORDER BY created_at DESC LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "9003a5a2b7204a03dba74c9b207654c6676f807a212657e9436509472e71db5e"
+}

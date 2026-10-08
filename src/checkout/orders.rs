@@ -67,6 +67,8 @@ pub struct OrderView {
     pub total: Money,
     pub shipping_address: Address,
     pub notes: String,
+    /// How it was paid: a payment adapter id, or `manual` when staff marked it.
+    pub paid_via: Option<String>,
     #[serde(with = "time::serde::rfc3339")]
     pub expires_at: OffsetDateTime,
     #[serde(with = "time::serde::rfc3339::option")]
@@ -302,7 +304,7 @@ pub async fn load(conn: &mut PgConnection, id: Uuid) -> Result<OrderView, Checko
     let o = sqlx::query!(
         r#"SELECT id, number, status AS "status: OrderStatus", email, currency, subtotal_amount, shipping_amount,
                   tax_amount, total_amount, prices_include_tax, tax_name, tax_rate_bp, shipping_option,
-                  shipping_address, notes, expires_at, paid_at, cancelled_at, created_at
+                  shipping_address, notes, paid_via, expires_at, paid_at, cancelled_at, created_at
            FROM orders WHERE id = $1"#,
         id
     )
@@ -353,11 +355,22 @@ pub async fn load(conn: &mut PgConnection, id: Uuid) -> Result<OrderView, Checko
         total: m(o.total_amount),
         shipping_address: serde_json::from_value(o.shipping_address).map_err(|_| corrupt("address"))?,
         notes: o.notes,
+        paid_via: o.paid_via,
         expires_at: o.expires_at,
         paid_at: o.paid_at,
         cancelled_at: o.cancelled_at,
         created_at: o.created_at,
     })
+}
+
+/// Why staff need to look at this order, if they do.
+pub async fn review_reason(db: &PgPool, id: Uuid) -> Result<Option<String>, sqlx::Error> {
+    Ok(
+        sqlx::query_scalar!("SELECT review_reason FROM orders WHERE id = $1", id)
+            .fetch_optional(db)
+            .await?
+            .flatten(),
+    )
 }
 
 /// Loads an order for someone who presented an access token and/or is logged in.
@@ -486,6 +499,9 @@ pub struct ListQuery {
     pub status: Option<OrderStatus>,
     /// Matches an order number exactly, or part of an email address.
     pub q: Option<String>,
+    /// Only orders a person needs to look at (e.g. paid after their stock sold out).
+    #[serde(default)]
+    pub needs_review: bool,
     pub page: Option<u32>,
     pub per_page: Option<u32>,
 }
@@ -503,6 +519,9 @@ pub async fn list(db: &PgPool, q: ListQuery, customer_id: Option<Uuid>) -> Resul
     }
     if let Some(status) = q.status {
         sql.push(" AND o.status = ").push_bind(status);
+    }
+    if q.needs_review {
+        sql.push(" AND o.review_reason IS NOT NULL");
     }
     if let Some(term) = q.q.as_deref().map(str::trim).filter(|t| !t.is_empty()) {
         match term.trim_start_matches('#').parse::<i64>() {

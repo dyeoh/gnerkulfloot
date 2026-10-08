@@ -24,6 +24,7 @@ mod auth;
 mod catalog;
 mod checkout;
 mod health;
+mod payments;
 mod setup;
 
 pub fn routes(state: &AppState) -> Router<AppState> {
@@ -49,6 +50,8 @@ pub fn routes(state: &AppState) -> Router<AppState> {
         .merge(credentials);
     let v1 = with_limit(v1, state, "global", rl.global);
 
+    // Provider webhooks sit outside every rate limit; see http/payments.rs.
+    let v1 = v1.merge(payments::routes());
     let mut router = Router::new().nest("/v1", v1).merge(health::routes());
     if let Some(root) = state.storage.local_root() {
         router = router.nest_service("/media", media(root));

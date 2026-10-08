@@ -36,6 +36,8 @@ pub enum MoneyError {
     Overflow,
     #[error("rate denominator must be positive")]
     InvalidRate,
+    #[error("{0:?} isn't a valid amount for this currency")]
+    InvalidDecimal(String),
 }
 
 /// How to round when a calculation lands between two minor units.
@@ -113,6 +115,37 @@ impl Money {
     /// `CurrencyMismatch` on the first amount in another currency, `Overflow` if the total doesn't fit.
     pub fn sum<I: IntoIterator<Item = Money>>(currency: Currency, items: I) -> Result<Money, MoneyError> {
         items.into_iter().try_fold(Money::zero(currency), Money::checked_add)
+    }
+
+    /// The amount as a plain decimal string in major units, e.g. `"19.90"` for
+    /// MYR or `"500"` for JPY. This is the format payment providers usually want.
+    pub fn to_decimal_string(&self) -> String {
+        let shown = self.to_string();
+        shown[..shown.len() - self.currency.code().len() - 1].to_owned()
+    }
+
+    /// Parses a decimal amount in major units (`"19.9"`, `"19.90"`, `"500"`)
+    /// exactly, without going through floating point.
+    ///
+    /// # Errors
+    /// `InvalidDecimal` for anything that isn't a plain decimal, or that has
+    /// more decimal places than the currency allows (`"1.234"` in MYR);
+    /// `Overflow` if it doesn't fit.
+    pub fn parse_decimal(text: &str, currency: Currency) -> Result<Money, MoneyError> {
+        let invalid = || MoneyError::InvalidDecimal(text.to_owned());
+        let exp = Money::zero(currency).exponent() as usize;
+        let (negative, digits) = match text.trim().strip_prefix('-') {
+            Some(rest) => (true, rest),
+            None => (false, text.trim()),
+        };
+        let (whole, frac) = digits.split_once('.').unwrap_or((digits, ""));
+        let all_digits = |s: &str| s.chars().all(|c| c.is_ascii_digit());
+        if whole.is_empty() || !all_digits(whole) || !all_digits(frac) || frac.len() > exp {
+            return Err(invalid());
+        }
+        let padded = format!("{whole}{frac:0<exp$}");
+        let minor: i64 = padded.parse().map_err(|_| MoneyError::Overflow)?;
+        Ok(Money::new(if negative { -minor } else { minor }, currency))
     }
 
     fn same_currency(self, other: Money) -> Result<(), MoneyError> {
@@ -257,6 +290,26 @@ mod tests {
         assert_eq!(Money::new(5, MYR).to_string(), "0.05 MYR");
         assert_eq!(Money::new(500, JPY).to_string(), "500 JPY");
         assert_eq!(Money::new(-1250, BHD).to_string(), "-1.250 BHD");
+    }
+
+    #[test]
+    fn decimal_strings_round_trip_exactly() {
+        assert_eq!(Money::new(2920, MYR).to_decimal_string(), "29.20");
+        assert_eq!(Money::new(5, MYR).to_decimal_string(), "0.05");
+        assert_eq!(Money::new(500, JPY).to_decimal_string(), "500");
+        assert_eq!(Money::new(-1250, BHD).to_decimal_string(), "-1.250");
+
+        assert_eq!(Money::parse_decimal("29.20", MYR).unwrap().amount, 2920);
+        assert_eq!(Money::parse_decimal("29.2", MYR).unwrap().amount, 2920);
+        assert_eq!(Money::parse_decimal("29", MYR).unwrap().amount, 2900);
+        assert_eq!(Money::parse_decimal("0.1", MYR).unwrap().amount, 10); // no 0.1 float error
+        assert_eq!(Money::parse_decimal("500", JPY).unwrap().amount, 500);
+        assert_eq!(Money::parse_decimal("-1.25", BHD).unwrap().amount, -1250);
+        assert_eq!(Money::parse_decimal("5.", MYR).unwrap().amount, 500); // trailing dot is harmless
+        for bad in ["", "1.234", "1,00", "abc", ".5", "1e3", "-"] {
+            assert!(Money::parse_decimal(bad, MYR).is_err(), "{bad:?} should fail");
+        }
+        assert!(Money::parse_decimal("500.5", JPY).is_err(), "JPY has no decimals");
     }
 
     #[test]

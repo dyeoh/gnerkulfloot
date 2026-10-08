@@ -38,6 +38,8 @@ pub struct Config {
     pub tax: TaxConfig,
     #[serde(default)]
     pub shipping: ShippingConfig,
+    #[serde(default)]
+    pub payments: PaymentsConfig,
 }
 
 /// HTTP server behaviour.
@@ -301,6 +303,41 @@ impl Default for ShippingConfig {
             adapters: vec![ShippingAdapterKind::FlatRate],
         }
     }
+}
+
+/// How shoppers pay online, picked with `adapter`. Not `Debug`: holds secrets.
+#[derive(Clone, Default, Deserialize, Serialize)]
+#[serde(tag = "adapter", rename_all = "snake_case")]
+pub enum PaymentsConfig {
+    /// No online payments: orders wait until staff mark them paid (cash, bank
+    /// transfer…).
+    #[default]
+    None,
+    /// HitPay hosted checkout: DuitNow QR, Touch 'n Go, cards and more,
+    /// confirmed automatically by signed webhook.
+    Hitpay(HitpayConfig),
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+pub struct HitpayConfig {
+    /// From the HitPay dashboard: Settings → API Keys.
+    pub api_key: String,
+    /// The salt of the webhook endpoint registered under Developers → Webhooks
+    /// (not the API key's salt).
+    pub webhook_salt: String,
+    /// Required, no default: forgetting to switch it in either direction
+    /// either takes fake payments in production or real money in testing.
+    pub sandbox: bool,
+    /// Limit the methods offered, e.g. `["duitnow", "touch_n_go", "card"]`.
+    /// Empty offers everything enabled in the HitPay dashboard.
+    #[serde(default)]
+    pub payment_methods: Vec<String>,
+    /// Where HitPay sends the shopper after paying. `{order_id}` is replaced.
+    /// Only for the shopper's convenience: orders are marked paid by webhook.
+    pub return_url: Option<String>,
+    /// Overrides the API address; only for tests.
+    #[serde(default)]
+    pub api_base: Option<String>,
 }
 
 impl Config {

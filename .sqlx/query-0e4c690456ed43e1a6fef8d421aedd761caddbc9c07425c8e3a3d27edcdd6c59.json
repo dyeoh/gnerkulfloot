@@ -1,0 +1,46 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT status, order_id, adapter, requested_amount, currency FROM payments WHERE id = $1 FOR UPDATE",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "status",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "order_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "adapter",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "requested_amount",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 4,
+        "name": "currency",
+        "type_info": "Bpchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "0e4c690456ed43e1a6fef8d421aedd761caddbc9c07425c8e3a3d27edcdd6c59"
+}

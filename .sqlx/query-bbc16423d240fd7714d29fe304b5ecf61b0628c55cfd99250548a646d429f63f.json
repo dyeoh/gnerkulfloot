@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT status AS \"status: OrderStatus\", expires_at FROM orders WHERE id = $1 FOR UPDATE",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "status: OrderStatus",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "expires_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "bbc16423d240fd7714d29fe304b5ecf61b0628c55cfd99250548a646d429f63f"
+}

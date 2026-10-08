@@ -51,6 +51,17 @@ rounding = "half_up"           # or "half_even"
 [shipping]
 adapters = ["flat_rate"]       # zones and rates managed via /v1/admin/shipping
 
+[payments]
+# How shoppers pay online. "none": staff mark orders paid (cash, bank transfer).
+# "hitpay": HitPay hosted checkout (DuitNow QR, Touch 'n Go, cards…). See README.
+adapter = "none"
+# adapter = "hitpay"
+# api_key = "..."              # or GNK__PAYMENTS__API_KEY
+# webhook_salt = "..."         # the webhook endpoint's salt; or GNK__PAYMENTS__WEBHOOK_SALT
+# sandbox = true               # required: true for HitPay's sandbox, false for real money
+# payment_methods = ["duitnow", "touch_n_go", "card"]
+# return_url = "https://shop.example.com/orders/{order_id}"
+
 [storage]
 # Where uploaded images go. "local" (a folder, served at /media) or "s3" (any
 # S3-compatible bucket: AWS, Cloudflare R2, DigitalOcean Spaces…). See README.

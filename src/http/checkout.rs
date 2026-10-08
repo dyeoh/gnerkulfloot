@@ -19,6 +19,7 @@ use crate::{
         quote::{self, Quote, QuoteRequest},
     },
     error::AppError,
+    payments::{self, PaymentView},
 };
 
 const IDEMPOTENCY_KEY: HeaderName = HeaderName::from_static("idempotency-key");
@@ -31,9 +32,12 @@ pub fn routes() -> Router<AppState> {
         .route("/me/orders", get(list_my_orders))
 }
 
-/// Placing orders; mounted behind the "orders" rate limit.
+/// Placing and paying for orders; mounted behind the "orders" rate limit,
+/// since both reserve something (stock, a provider checkout).
 pub fn order_routes() -> Router<AppState> {
-    Router::new().route("/orders", post(create_order))
+    Router::new()
+        .route("/orders", post(create_order))
+        .route("/orders/{id}/payment", post(start_payment))
 }
 
 async fn quote_basket(State(state): State<AppState>, Json(body): Json<QuoteRequest>) -> Result<Json<Quote>, AppError> {
@@ -74,6 +78,29 @@ struct TokenQuery {
     token: Option<String>,
 }
 
+fn order_token(headers: &HeaderMap, q: TokenQuery) -> Option<String> {
+    headers
+        .get(&ORDER_TOKEN)
+        .and_then(|v| v.to_str().ok())
+        .map(str::to_owned)
+        .or(q.token)
+}
+
+/// Opens (or returns the already-open) online payment for an order. Send the
+/// shopper to `checkout_url`. The order turns `paid` when the provider confirms,
+/// not when the shopper comes back.
+async fn start_payment(
+    State(state): State<AppState>,
+    OptionalUser(user): OptionalUser,
+    Path(id): Path<Uuid>,
+    Query(q): Query<TokenQuery>,
+    headers: HeaderMap,
+) -> Result<(StatusCode, Json<PaymentView>), AppError> {
+    let token = order_token(&headers, q);
+    let payment = payments::start(&state, id, token.as_deref(), user.as_ref()).await?;
+    Ok((StatusCode::CREATED, Json(payment)))
+}
+
 /// Guests pass the order's `access_token` as `X-Order-Token` (or `?token=`);
 /// logged-in customers can view their own orders without it.
 async fn get_order(
@@ -83,11 +110,7 @@ async fn get_order(
     Query(q): Query<TokenQuery>,
     headers: HeaderMap,
 ) -> Result<Json<OrderView>, AppError> {
-    let token = headers
-        .get(&ORDER_TOKEN)
-        .and_then(|v| v.to_str().ok())
-        .map(str::to_owned)
-        .or(q.token);
+    let token = order_token(&headers, q);
     Ok(Json(
         orders::view(&state.db, id, token.as_deref(), user.as_ref()).await?,
     ))

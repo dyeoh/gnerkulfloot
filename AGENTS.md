@@ -67,8 +67,7 @@ in structure.
 
 | Concern              | Trait                 | Adapters                                   |
 |----------------------|-----------------------|--------------------------------------------|
-| Payments             | `PaymentAdapter`      | `TngEwallet`, `DuitNowQr` (gateways later) |
-| Payment confirmation | `ConfirmationAdapter` | `Manual` (for `DuitNowQr`)                 |
+| Payments             | `PaymentAdapter`      | `Hitpay` (more gateways, or TnG direct, later) |
 | Shipping             | `ShippingAdapter`     | `FlatRate`, `EasyParcel`                   |
 | Mail                 | `MailAdapter`         | `Smtp`, `Log` (dev/tests)                  |
 
@@ -113,26 +112,31 @@ currency.
   compatible ones.
 
 ### Payments and how confirmation works
-The shop's DuitNow QR belongs to a Touch 'n Go eWallet business account. We
-generate a **per-order dynamic QR** ourselves from that merchant QR. DuitNow is an
-open EMVCo standard, so we only rewrite a few TLV fields (amount, reference) and
-recompute the checksum. The customer scans it, and the money goes straight to
-the merchant account with no gateway fee.
+Online payments go through a payment gateway behind `PaymentAdapter`. The first
+is **HitPay**: its hosted checkout offers DuitNow QR (payable from Touch 'n Go
+and any Malaysian banking app), cards and more, and it tells us about payments
+by signed webhook. We chose a gateway because a plain merchant QR has no API
+that says "this money arrived"; only the acquirer or a licensed gateway can.
 
-The catch is *confirmation*. A plain merchant QR has no API that tells us money
-arrived. Only the acquirer (TnG) or a licensed gateway connected to it can say
-"this order is paid". Confirmation is therefore its own pluggable step:
+An order is marked paid by exactly two things:
 
-- **Manual** (default): the admin gets the payment notification on their phone,
-  then marks the order paid with one tap on a mobile-friendly admin link. Correct
-  and simple. Fine at small-shop volume.
-- **Official API** (the goal): the `TngEwallet` adapter uses TnG Digital's online
-  payment API.
-  - Every request is RSA-signed.
-  - TnG calls our notify webhook when the customer pays. We verify TnG's
-    signature and de-duplicate notifications.
-  - A reconciliation job calls `inquiryPayment` for anything still pending.
-  - A gateway (Curlec, HitPay, Billplz, Fiuu…) would plug in the same way.
+1. **The provider's API.** A webhook is only a signed hint that something
+   changed. We check its signature, then ask the provider's API for the
+   payment's real state and act on that. We never act on the webhook body:
+   HitPay's payload shapes vary, and a body can't be trusted just because its
+   signature is right. A reconciliation sweep asks the API again for payments
+   still pending after two minutes, in case a webhook was lost.
+2. **A staff member**, for money taken outside the shop (cash, bank transfer),
+   via `POST /v1/admin/orders/{id}/mark-paid`.
+
+The shopper being redirected back from the checkout page proves nothing and
+never changes an order.
+
+When money arrives for an order that can't simply be marked paid, we don't
+guess: a lapsed (expired or cancelled) order tries to hold its stock again and
+is paid if it can, and anything else (stock sold out meanwhile, wrong amount,
+paid twice) sets `orders.review_reason` for a person to resolve. Applying a
+provider's verdict is idempotent: a payment leaves `pending` only once.
 
 **We never scrape for payment status.** Parsing notification emails, forwarding
 phone notifications, or screen-scraping apps are all off the table. They break
@@ -177,7 +181,7 @@ editing a rule later never changes past orders.
   `ShippingAdapter`, `MailAdapter`. Use "provider" only for the vendor itself,
   never for our types.
 - Adapter structs are named after the vendor or method, with no suffix, and live
-  in the concern's module: `payments::DuitNowQr`, `shipping::EasyParcel`,
+  in the concern's module: `payments::Hitpay`, `shipping::EasyParcel`,
   `mail::Smtp`.
 - HTTP handlers are `verb_noun`: `create_order`, `list_products`, `mark_order_paid`.
 - Error enum variants are `PascalCase` nouns describing what went wrong:

@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT sku_id, quantity FROM order_lines WHERE order_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "sku_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "quantity",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "36413bff9266f6dd374511ceb40bda942f9775ebab760523739d789ec9636cab"
+}

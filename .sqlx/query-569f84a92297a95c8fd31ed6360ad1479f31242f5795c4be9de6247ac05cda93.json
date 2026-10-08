@@ -1,0 +1,70 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, adapter, status, requested_amount, currency, checkout_url, qr_code, created_at, completed_at\n         FROM payments WHERE order_id = $1 ORDER BY created_at DESC",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "adapter",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "status",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "requested_amount",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 4,
+        "name": "currency",
+        "type_info": "Bpchar"
+      },
+      {
+        "ordinal": 5,
+        "name": "checkout_url",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "qr_code",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 8,
+        "name": "completed_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      true
+    ]
+  },
+  "hash": "569f84a92297a95c8fd31ed6360ad1479f31242f5795c4be9de6247ac05cda93"
+}

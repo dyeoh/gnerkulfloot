@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE payments SET status = 'succeeded', completed_at = now(), updated_at = now() WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "020e97deffe99db618c738909ffbc57d6a16fe3507f4b538390acb79a4c9bfca"
+}

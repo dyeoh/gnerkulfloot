@@ -1,5 +1,6 @@
-//! Periodic housekeeping: expiring unpaid orders, and deleting expired
-//! sessions and old idempotency keys.
+//! Periodic housekeeping: expiring unpaid orders, re-checking payments whose
+//! webhook may have been lost, and deleting expired sessions and old
+//! idempotency keys.
 //!
 //! Every sweep is idempotent and safe to run on all instances at once, so
 //! there's no leader election. The durable job queue (for work that must not
@@ -7,7 +8,7 @@
 
 use std::time::Duration;
 
-use crate::{app::AppState, checkout::orders};
+use crate::{app::AppState, checkout::orders, payments};
 
 const INTERVAL: Duration = Duration::from_secs(30);
 /// Idempotency keys only need to outlive client retries.
@@ -25,6 +26,10 @@ pub async fn run(state: AppState) {
 
 /// One pass of every sweep. Failures are logged and retried next pass.
 pub async fn run_once(state: &AppState) {
+    // Before expiring orders, so a payment that landed just in time counts.
+    if let Err(e) = payments::reconcile(state).await {
+        tracing::error!(error = %e, "reconciling payments failed");
+    }
     match orders::expire_due(&state.db).await {
         Ok(0) => {}
         Ok(n) => tracing::info!(expired = n, "expired unpaid orders and released their stock"),

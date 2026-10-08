@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id FROM payments\n         WHERE status = 'pending'\n           AND created_at < now() - make_interval(secs => $1)\n           AND created_at > now() - interval '3 days'\n         ORDER BY updated_at LIMIT $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Float8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "4e4a73ce00c9f5f7e1c2b31dd6706f912e810b7976823d1169a76ea85f765000"
+}
