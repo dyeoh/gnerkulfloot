@@ -1,0 +1,130 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, number, status AS \"status: OrderStatus\", email, currency, subtotal_amount, shipping_amount,\n                  tax_amount, total_amount, prices_include_tax, tax_name, tax_rate_bp, shipping_option,\n                  shipping_address, notes, expires_at, paid_at, cancelled_at, created_at\n           FROM orders WHERE id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "number",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "status: OrderStatus",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "email",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "currency",
+        "type_info": "Bpchar"
+      },
+      {
+        "ordinal": 5,
+        "name": "subtotal_amount",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 6,
+        "name": "shipping_amount",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 7,
+        "name": "tax_amount",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 8,
+        "name": "total_amount",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 9,
+        "name": "prices_include_tax",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 10,
+        "name": "tax_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 11,
+        "name": "tax_rate_bp",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 12,
+        "name": "shipping_option",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 13,
+        "name": "shipping_address",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 14,
+        "name": "notes",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 15,
+        "name": "expires_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 16,
+        "name": "paid_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 17,
+        "name": "cancelled_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 18,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "f7a105bc9da093de00759d5f5dc6bf96b25f8960ca434f5d6da7f94d65e08147"
+}

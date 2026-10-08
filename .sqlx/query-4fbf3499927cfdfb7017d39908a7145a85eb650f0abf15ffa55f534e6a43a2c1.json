@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT sku_id, SUM(quantity)::int AS \"quantity!\" FROM order_lines\n           WHERE order_id = ANY($1) GROUP BY sku_id ORDER BY sku_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "sku_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "quantity!",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "4fbf3499927cfdfb7017d39908a7145a85eb650f0abf15ffa55f534e6a43a2c1"
+}

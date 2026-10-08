@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE shipping_rates SET\n             name             = COALESCE($2, name),\n             price_amount     = COALESCE($3, price_amount),\n             min_weight_g     = COALESCE($4, min_weight_g),\n             max_weight_g     = $5,\n             free_over_amount = $6,\n             active           = COALESCE($7, active),\n             position         = COALESCE($8, position),\n             updated_at       = now()\n         WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Int8",
+        "Int4",
+        "Int4",
+        "Int8",
+        "Bool",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "dd02a9c2ac5b22c769913a13cf19bd4be482b086a8552d346bdcba8d0da72a1d"
+}

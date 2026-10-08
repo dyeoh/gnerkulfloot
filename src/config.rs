@@ -32,6 +32,12 @@ pub struct Config {
     pub rate_limit: RateLimitConfig,
     #[serde(default)]
     pub storage: StorageConfig,
+    #[serde(default)]
+    pub checkout: CheckoutConfig,
+    #[serde(default)]
+    pub tax: TaxConfig,
+    #[serde(default)]
+    pub shipping: ShippingConfig,
 }
 
 /// HTTP server behaviour.
@@ -148,6 +154,9 @@ pub struct RateLimitConfig {
     pub global: Quota,
     /// Login, registration and first-time setup: the endpoints worth brute-forcing.
     pub auth: Quota,
+    /// Placing orders. Each order holds stock, so this stops a script from
+    /// tying up a product's whole stock with orders it never pays for.
+    pub orders: Quota,
 }
 
 impl Default for RateLimitConfig {
@@ -159,6 +168,10 @@ impl Default for RateLimitConfig {
                 burst: 100,
             },
             auth: Quota {
+                per_minute: 10,
+                burst: 5,
+            },
+            orders: Quota {
                 per_minute: 10,
                 burst: 5,
             },
@@ -217,6 +230,75 @@ impl Default for StorageConfig {
         StorageConfig::Local {
             path: default_media_path(),
             public_base_url: default_media_url(),
+        }
+    }
+}
+
+/// Checkout and order behaviour.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(default)]
+pub struct CheckoutConfig {
+    /// How long an unpaid order holds its stock before it expires. Generous by
+    /// default because payments are confirmed by hand until an automatic payment
+    /// adapter is set up; lower it (e.g. to 30) once confirmation is automatic.
+    pub payment_window_minutes: i64,
+    pub max_lines: usize,
+    pub max_quantity: i32,
+}
+
+impl Default for CheckoutConfig {
+    fn default() -> Self {
+        Self {
+            payment_window_minutes: 24 * 60,
+            max_lines: 100,
+            max_quantity: 999,
+        }
+    }
+}
+
+/// Tax fallback when no tax rule matches the destination.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(default)]
+pub struct TaxConfig {
+    /// True when shelf prices already include tax (common for consumer shops),
+    /// false when tax is added on top at checkout.
+    pub prices_include_tax: bool,
+    /// Hundredths of a percent: 6% = 600. Zero for shops not registered for tax.
+    pub default_rate_bp: i32,
+    /// Label shown on orders, e.g. "SST" or "GST".
+    pub default_name: String,
+    pub rounding: crate::money::Rounding,
+}
+
+impl Default for TaxConfig {
+    fn default() -> Self {
+        Self {
+            prices_include_tax: false,
+            default_rate_bp: 0,
+            default_name: "Tax".into(),
+            rounding: crate::money::Rounding::HalfUp,
+        }
+    }
+}
+
+/// Which shipping adapters offer rates at checkout. Their options are merged.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(default)]
+pub struct ShippingConfig {
+    pub adapters: Vec<ShippingAdapterKind>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ShippingAdapterKind {
+    /// Zones and rates managed through the admin API.
+    FlatRate,
+}
+
+impl Default for ShippingConfig {
+    fn default() -> Self {
+        Self {
+            adapters: vec![ShippingAdapterKind::FlatRate],
         }
     }
 }

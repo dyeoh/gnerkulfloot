@@ -8,7 +8,7 @@ use gnerkulfloot::{
     app::{self, AppState},
     auth::{Role, password, setup, users},
     config::{Config, LogFormat},
-    db,
+    db, worker,
 };
 use tracing_subscriber::EnvFilter;
 
@@ -24,8 +24,14 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Run the HTTP API (the default when no command is given).
-    Serve,
+    /// Run the HTTP API and background sweeps (the default when no command is given).
+    Serve {
+        /// Don't run background sweeps in this process (run `worker` separately).
+        #[arg(long)]
+        no_worker: bool,
+    },
+    /// Run only the background sweeps (expiring unpaid orders, cleanup), no HTTP.
+    Worker,
     /// Apply pending database migrations and exit.
     Migrate,
     /// Print the first-time setup token (if setup hasn't been completed yet).
@@ -61,8 +67,17 @@ async fn main() -> anyhow::Result<()> {
     let config = Config::load(&cli.config).context("loading config")?;
     init_tracing(config.server.log_format);
 
-    match cli.command.unwrap_or(Command::Serve) {
-        Command::Serve => serve(config).await,
+    match cli.command.unwrap_or(Command::Serve { no_worker: false }) {
+        Command::Serve { no_worker } => serve(config, !no_worker).await,
+        Command::Worker => {
+            let pool = ready_pool(&config).await?;
+            let state = AppState::new(pool, config).context("setting up adapters")?;
+            tracing::info!("worker running");
+            tokio::select! {
+                _ = worker::run(state) => Ok(()),
+                _ = shutdown_signal() => Ok(()),
+            }
+        }
         Command::Migrate => {
             let pool = db::connect(&config.database).await.context("connecting to database")?;
             db::migrate(&pool).await.context("running migrations")?;
@@ -130,7 +145,7 @@ async fn create_account(
     Ok(())
 }
 
-async fn serve(config: Config) -> anyhow::Result<()> {
+async fn serve(config: Config, with_worker: bool) -> anyhow::Result<()> {
     let pool = db::connect(&config.database).await.context("connecting to database")?;
     if config.server.migrate_on_start {
         db::migrate(&pool).await.context("running migrations")?;
@@ -144,6 +159,11 @@ async fn serve(config: Config) -> anyhow::Result<()> {
 
     let bind = config.server.bind;
     let state = AppState::new(pool, config).context("setting up adapters")?;
+    if with_worker {
+        // Sweeps are idempotent and each step commits atomically, so stopping
+        // mid-pass on shutdown is safe.
+        tokio::spawn(worker::run(state.clone()));
+    }
     let listener = tokio::net::TcpListener::bind(bind)
         .await
         .with_context(|| format!("binding {bind}"))?;

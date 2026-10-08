@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM shipping_zone_regions WHERE zone_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4d05de7c15d4f2905e4413b30ef1441d4f30e6b29a6199780c5eeee1970a627e"
+}

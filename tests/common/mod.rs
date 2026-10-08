@@ -38,6 +38,9 @@ pub fn config() -> Config {
             ..Default::default()
         },
         // A fresh media directory per test, so tests never see each other's files.
+        checkout: Default::default(),
+        tax: Default::default(),
+        shipping: Default::default(),
         storage: StorageConfig::Local {
             path: std::env::temp_dir().join(format!("gnk-test-media-{}", uuid::Uuid::new_v4())),
             public_base_url: "/media".into(),
@@ -78,6 +81,28 @@ pub async fn admin_token(app: &Router, db: &PgPool) -> String {
     let res = send(app, "POST", "/v1/setup", None, Some(body)).await;
     assert_eq!(res.status, StatusCode::CREATED, "{:?}", res.json);
     res.json["token"].as_str().unwrap().to_owned()
+}
+
+/// Like `send`, with extra request headers.
+pub async fn send_with_headers(
+    app: &Router,
+    method: &str,
+    path: &str,
+    headers: &[(&str, &str)],
+    body: Option<Value>,
+) -> Res {
+    let mut req = Request::builder().method(method).uri(path);
+    for (k, v) in headers {
+        req = req.header(*k, *v);
+    }
+    let req = match body {
+        Some(b) => req
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(b.to_string())),
+        None => req.body(Body::empty()),
+    }
+    .unwrap();
+    into_res(app.clone().oneshot(req).await.unwrap()).await
 }
 
 pub async fn send(app: &Router, method: &str, path: &str, token: Option<&str>, body: Option<Value>) -> Res {

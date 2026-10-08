@@ -17,9 +17,12 @@ use crate::{
 };
 
 mod admin_catalog;
+mod admin_orders;
+mod admin_shipping;
 mod admin_users;
 mod auth;
 mod catalog;
+mod checkout;
 mod health;
 mod setup;
 
@@ -30,12 +33,18 @@ pub fn routes(state: &AppState) -> Router<AppState> {
         .merge(auth::credential_routes())
         .merge(setup::credential_routes());
     let credentials = with_limit(credentials, state, "auth", rl.auth);
+    // Placing an order holds stock, so it gets its own budget.
+    let ordering = with_limit(checkout::order_routes(), state, "orders", rl.orders);
 
     let v1 = Router::new()
         .merge(auth::routes())
         .merge(admin_users::routes())
         .merge(admin_catalog::routes())
+        .merge(admin_orders::routes())
+        .merge(admin_shipping::routes())
         .merge(catalog::routes())
+        .merge(checkout::routes())
+        .merge(ordering)
         .merge(setup::routes())
         .merge(credentials);
     let v1 = with_limit(v1, state, "global", rl.global);

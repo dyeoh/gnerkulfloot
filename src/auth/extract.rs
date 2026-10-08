@@ -4,6 +4,7 @@
 //! - [`CurrentUser`]: any logged-in account (401 otherwise)
 //! - [`StaffUser`]: admin or staff (403 for customers)
 //! - [`AdminUser`]: admin only
+//! - [`OptionalUser`]: the user if a token is sent (guests allowed), 401 for a bad token
 //! - [`BearerToken`]: the raw token, for logout
 
 use axum::{
@@ -41,6 +42,23 @@ impl FromRequestParts<AppState> for CurrentUser {
             .await?
             .map(CurrentUser)
             .ok_or(AppError::Unauthorized)
+    }
+}
+
+/// For endpoints guests can use too, like checkout. No `Authorization`
+/// header means a guest; a header with a bad or expired token is still a 401,
+/// so a client never silently loses its login.
+pub struct OptionalUser(pub Option<User>);
+
+impl FromRequestParts<AppState> for OptionalUser {
+    type Rejection = AppError;
+
+    async fn from_request_parts(parts: &mut Parts, state: &AppState) -> Result<Self, AppError> {
+        if !parts.headers.contains_key(header::AUTHORIZATION) {
+            return Ok(OptionalUser(None));
+        }
+        let CurrentUser(user) = CurrentUser::from_request_parts(parts, state).await?;
+        Ok(OptionalUser(Some(user)))
     }
 }
 

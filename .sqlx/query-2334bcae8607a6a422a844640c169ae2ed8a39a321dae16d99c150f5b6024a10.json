@@ -1,0 +1,43 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH matching AS (\n                   SELECT DISTINCT r.zone_id, (r.state <> '') AS by_state\n                   FROM shipping_zone_regions r\n                   WHERE r.country = $1 AND (r.state = '' OR r.state = $2)\n               ),\n               best AS (\n                   SELECT zone_id FROM matching\n                   WHERE by_state = (SELECT bool_or(by_state) FROM matching)\n               )\n               SELECT sr.id, sr.name, sr.price_amount, sr.free_over_amount\n               FROM shipping_rates sr JOIN best ON best.zone_id = sr.zone_id\n               WHERE sr.active\n                 AND sr.price_currency = $3\n                 AND sr.min_weight_g <= $4\n                 AND (sr.max_weight_g IS NULL OR sr.max_weight_g >= $4)\n               ORDER BY sr.position, sr.price_amount",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "price_amount",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "free_over_amount",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bpchar",
+        "Text",
+        "Bpchar",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "2334bcae8607a6a422a844640c169ae2ed8a39a321dae16d99c150f5b6024a10"
+}

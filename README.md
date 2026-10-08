@@ -29,8 +29,8 @@ company.
 | Admin first-time setup, logins, staff accounts, rate limiting | ✅ working |
 | Products, variants, per-currency prices, stock, categories, search | ✅ working |
 | Images (S3 / R2 / DO Spaces / local disk), resized to WebP | ✅ working |
-| Checkout, orders, stock reservation, tax, flat-rate shipping | planned (next) |
-| DuitNow QR payments + payment confirmation | planned |
+| Checkout, orders, stock holds, tax rules, flat-rate shipping | ✅ working |
+| DuitNow QR / TnG payments + payment confirmation | planned (next) |
 | Order emails and marketing campaigns | planned |
 | EasyParcel shipping, Redis (shared rate limits), OIDC login | planned |
 | systemd unit, Caddy/nginx load balancer configs | planned |
@@ -86,6 +86,10 @@ Every key is listed there with a comment. The ones you're most likely to change:
 | `rate_limit.global`, `rate_limit.auth` | 300/min, 10/min | Requests allowed per client IP. `auth` covers login, register and setup. |
 | `auth.max_failed_logins`, `auth.lockout_minutes` | 5, 15 | Wrong passwords in a row before an account is locked, and for how long. |
 | `auth.session_ttl_hours` | 720 | How long a login lasts (30 days). |
+| `rate_limit.orders` | 10/min | Orders one IP can place. Each order holds stock, so this stops a script tying it all up. |
+| `checkout.payment_window_minutes` | 1440 | How long an unpaid order holds its stock (24 h, because payments are confirmed by hand for now). Lower it once payment confirmation is automatic. |
+| `tax.prices_include_tax` | `false` | `true` if your prices already include tax (tax is then shown as "included", not added). |
+| `tax.default_rate_bp`, `tax.default_name` | 0, `Tax` | Tax when no tax rule matches the address, in hundredths of a percent (6% = 600). |
 
 Log verbosity follows `RUST_LOG`, e.g. `RUST_LOG=debug` or
 `RUST_LOG=info,sqlx=warn`.
@@ -98,7 +102,8 @@ Each external service is picked with an `adapter` key in its section.
 | `[storage]` | `local`, `s3` (AWS S3, Cloudflare R2, DigitalOcean Spaces, MinIO, SeaweedFS…) | ✅ |
 | `[payments]` | `tng_ewallet`, `duitnow_qr` | planned |
 | `[payments.confirmation]` | `manual` | planned |
-| `[shipping]` | `flat_rate`, `easyparcel` | planned |
+| `[shipping]` | `adapters = ["flat_rate"]`: rates you manage yourself (see [Checkout](#checkout-and-orders)) | ✅ |
+| `[shipping]` | `easyparcel` | planned |
 | `[mail.transactional]`, `[mail.marketing]` | `smtp`, `log` | planned |
 
 ### Image storage
@@ -182,7 +187,9 @@ For automated deployments you can fix the token in advance with
 ## Command line
 
 ```
-gnerkulfloot [serve]                    run the API (default)
+gnerkulfloot [serve]                    run the API and background sweeps (default)
+    [--no-worker]                       …without the sweeps (run `worker` separately)
+gnerkulfloot worker                     run only the background sweeps
 gnerkulfloot migrate                    apply database migrations and exit
 gnerkulfloot setup-token                print the first-time setup token, if setup is pending
 gnerkulfloot admin create --email E     create an admin account (prompts for the password)
@@ -284,6 +291,113 @@ curl -X POST "localhost:8080/v1/admin/products/$PRODUCT_ID/images?alt=Front%20vi
   -H "authorization: Bearer $TOKEN" -H "content-type: image/jpeg" --data-binary @photo.jpg
 ```
 
+## Checkout and orders
+
+### Setting up shipping and tax (staff)
+
+Shipping uses **zones**: a zone is a set of regions (whole countries, or states
+within one), and each zone has **rates**. A state-level zone beats a
+country-wide one, so "East Malaysia" (Sabah, Sarawak) overrides a catch-all
+"Malaysia".
+
+```sh
+# A zone and a rate: RM8 up to 5 kg, free from RM100
+curl -X POST localhost:8080/v1/admin/shipping/zones -H "authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' -d '{"name": "Malaysia", "regions": [{"country": "MY"}]}'
+curl -X POST localhost:8080/v1/admin/shipping/zones/$ZONE_ID/rates -H "authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' \
+  -d '{"name": "Pos Laju", "currency": "MYR", "amount": 800, "max_weight_g": 5000, "free_over_amount": 10000}'
+
+# 6% SST for Malaysia, with a 0% exception for postcodes starting 87
+curl -X POST localhost:8080/v1/admin/tax-rules -H "authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' -d '{"name": "SST", "country": "MY", "rate_bp": 600}'
+curl -X POST localhost:8080/v1/admin/tax-rules -H "authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' -d '{"name": "Duty free", "country": "MY", "postcode_prefix": "87", "rate_bp": 0}'
+```
+
+| Endpoint | What |
+|---|---|
+| `GET` / `POST /v1/admin/shipping/zones` | list zones (with their regions and rates) / create one: `{"name", "regions": [{"country", "state"?}]}` |
+| `PATCH` / `DELETE /v1/admin/shipping/zones/{id}` | rename or replace regions / delete with its rates |
+| `POST /v1/admin/shipping/zones/{id}/rates` | add a rate: `{"name", "currency", "amount", "min_weight_g"?, "max_weight_g"?, "free_over_amount"?}` |
+| `PATCH` / `DELETE /v1/admin/shipping/rates/{id}` | change / remove a rate |
+| `GET` / `POST /v1/admin/tax-rules`, `PATCH` / `DELETE /v1/admin/tax-rules/{id}` | tax rules: `{"name", "country", "state"?, "postcode_prefix"?, "rate_bp", "applies_to_shipping"?}` |
+
+The most specific tax rule for the address wins (postcode prefix, then state,
+then country). If none matches, `tax.default_rate_bp` applies.
+
+### Buying (shoppers)
+
+1. **Quote** the basket whenever it or the address changes. Nothing is
+   reserved yet.
+
+   ```sh
+   curl -X POST localhost:8080/v1/checkout/quote -H 'content-type: application/json' -d '{
+     "currency": "MYR",
+     "lines": [{"sku_id": "…", "quantity": 2}],
+     "destination": {"country": "MY", "state": "Selangor", "postcode": "50450"}
+   }'
+   ```
+
+   The quote has the line prices, `shipping_options` (cheapest first), the
+   chosen `shipping`, `tax` and `total`. To pick another shipping option, send
+   its `id` back as `shipping_option_id`.
+
+2. **Place the order.** Send an `Idempotency-Key` header: any unique string
+   made when the shopper presses "Place order", reused if you retry. A retry
+   then returns the same order instead of placing a second one.
+
+   ```sh
+   curl -X POST localhost:8080/v1/orders -H 'content-type: application/json' \
+     -H 'idempotency-key: 6f1c…' -d '{
+     "email": "siti@example.com", "currency": "MYR",
+     "lines": [{"sku_id": "…", "quantity": 2}],
+     "shipping_address": {"name": "Siti", "line1": "1 Jalan Ampang", "city": "Kuala Lumpur",
+                          "state": "Selangor", "postcode": "50450", "country": "MY", "phone": "…"},
+     "shipping_option_id": "flat_rate:…"
+   }'
+   ```
+
+   The response is `{"order": {…}, "access_token": "ord_…"}`. The order starts
+   as `pending_payment` and **holds its stock** until `expires_at`. Keep the
+   `access_token`: it's the guest's key to their order and is never shown again.
+   Shoppers who are logged in (`Authorization: Bearer …`) get the order linked to
+   their account too.
+
+3. **View the order:** `GET /v1/orders/{id}` with header `X-Order-Token: ord_…`
+   (or `?token=ord_…`, handy in emailed links). Logged-in customers can skip the
+   token for their own orders, and list them with `GET /v1/me/orders`.
+
+The server prices everything itself. Clients send only SKU ids, quantities, the
+address and the chosen option; anything price-like in the request is ignored.
+
+**Errors your storefront should handle.** These come with a `code`:
+
+| Status | `code` | Meaning | Extra fields |
+|---|---|---|---|
+| 409 | `out_of_stock` | not enough stock for a line | `sku_id`, `available` |
+| 409 | `unavailable` | item not for sale, or no price in this currency | `sku_id` |
+| 422 | `shipping_unavailable` | no shipping option for this address and currency | |
+| 422 | `unknown_shipping_option` | the chosen option doesn't apply any more; re-quote | |
+| 422 | `idempotency_key_reused` | the same key was sent with a different order | |
+
+### Order statuses and expiry
+
+| Status | Meaning |
+|---|---|
+| `pending_payment` | placed, stock held, waiting for payment |
+| `paid` | payment confirmed *(arrives with payments)* |
+| `fulfilled` | shipped *(arrives with fulfilment)* |
+| `cancelled` | cancelled by staff before payment; stock went back on sale |
+| `expired` | not paid within `checkout.payment_window_minutes`; stock went back on sale |
+
+Expiry is handled by background sweeps that every `serve` process runs every
+30 seconds. They're safe to run on many instances at once.
+
+Staff manage orders with `GET /v1/admin/orders` (query: `status`, `q` = order
+number or part of an email, `page`), `GET /v1/admin/orders/{id}`, and
+`POST /v1/admin/orders/{id}/cancel` for unpaid orders.
+
 ## Deployment
 
 ### Single droplet / any Docker host
@@ -338,6 +452,12 @@ decisions, naming conventions and patterns the codebase follows.
 
 ## Troubleshooting
 
+- **Checkout says `shipping_unavailable`**: no zone covers the address, or the
+  zone has no active rate in the order's currency for that parcel weight. Check
+  `GET /v1/admin/shipping/zones`.
+- **Orders expire before they're paid**: raise
+  `checkout.payment_window_minutes`. Expired orders have already released their
+  stock, so place a new order rather than reviving the old one.
 - **Images upload but don't show on the storefront**: the image URLs are built
   from `storage.public_base_url`. With `local` storage and a storefront on
   another domain, make it absolute (`https://api.example.com/media`). With

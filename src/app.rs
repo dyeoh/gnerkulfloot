@@ -21,6 +21,7 @@ use crate::{
     config::Config,
     http,
     ratelimit::{MemoryRateLimiter, RateLimiter},
+    shipping::{self, ShippingAdapter},
     storage::Storage,
 };
 
@@ -33,6 +34,7 @@ pub struct AppState {
     pub config: Arc<Config>,
     pub limiter: Arc<dyn RateLimiter>,
     pub storage: Storage,
+    pub shipping: Arc<[Arc<dyn ShippingAdapter>]>,
 }
 
 impl AppState {
@@ -45,11 +47,13 @@ impl AppState {
         // instance limits on its own.
         let limiter: Arc<dyn RateLimiter> = MemoryRateLimiter::new();
         let storage = Storage::from_config(&config.storage)?;
+        let shipping = shipping::from_config(&config.shipping.adapters, &db).into();
         Ok(Self {
             db,
             config: Arc::new(config),
             limiter,
             storage,
+            shipping,
         })
     }
 }

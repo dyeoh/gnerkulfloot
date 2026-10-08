@@ -81,8 +81,10 @@ Two deliberate exceptions:
   integrations, so they keep plain role names. Their implementations are
   `MemoryRateLimiter`/`RedisRateLimiter` and `RedisLock`/`PgAdvisoryLock`.
 
-Config picks the adapter with an `adapter` key, e.g. `[shipping] adapter =
-"easyparcel"`. **To add an adapter:**
+Config picks the adapter with an `adapter` key, e.g. `[storage] adapter = "s3"`.
+Where several adapters can be active at once (shipping: checkout merges their
+options), the key is a list: `[shipping] adapters = ["flat_rate", "easyparcel"]`.
+**To add an adapter:**
 
 1. write a struct implementing the trait, in its own file next to the trait;
 2. add a variant to that section's config enum in `config.rs`;
@@ -101,7 +103,9 @@ currency.
 - Adding two amounts in different currencies returns an error. It never
   silently converts.
 - Every money column is stored as a pair: `<name>_amount BIGINT` and
-  `<name>_currency CHAR(3)`.
+  `<name>_currency CHAR(3)`. The exception is a table whose amounts must all
+  share one currency, like `orders`: it has a single `currency` column, so a
+  mismatch can't even be written down.
 - A SKU has one price per currency (`sku_prices`). There's no automatic FX.
 - An order is in exactly one currency, and every line, fee, tax and payment
   on it uses that currency.
@@ -182,7 +186,8 @@ editing a rule later never changes past orders.
 **Database**
 - Tables are plural `snake_case`: `orders`, `order_lines`, `sku_prices`.
 - Primary keys are `id UUID`. Foreign keys are `<singular>_id`, e.g. `order_id`.
-- Money is a column pair: `total_amount BIGINT`, `total_currency CHAR(3)`.
+- Money is a column pair: `total_amount BIGINT`, `total_currency CHAR(3)`, or
+  `<name>_amount` columns sharing one `currency` column when they must match.
 - Timestamps are `<event>_at TIMESTAMPTZ`: `created_at`, `paid_at`, `expires_at`.
 - Status columns use Postgres text with a `CHECK` constraint, mirrored by a Rust
   enum.
@@ -221,9 +226,14 @@ record idempotency key all commit together or not at all.
 
 **Background work goes through the `jobs` table**, not `tokio::spawn`. A spawned
 task dies with its instance; a job row survives restarts and is picked up by
-whichever instance is free (`FOR UPDATE SKIP LOCKED`). The exception is
-housekeeping of in-memory state that dies with the process anyway, like the
-in-memory rate limiter's sweep of idle clients.
+whichever instance is free (`FOR UPDATE SKIP LOCKED`). Two exceptions:
+
+- **Periodic sweeps** in `worker.rs` (expiring unpaid orders, purging old
+  sessions and idempotency keys). They're idempotent, each step commits
+  atomically, and they claim rows with `SKIP LOCKED`, so running them on every
+  instance is safe and losing a pass to a restart costs nothing.
+- **Housekeeping of in-memory state** that dies with the process anyway, like
+  the in-memory rate limiter's sweep of idle clients.
 
 **Auth in handlers.** Take an extractor argument: `CurrentUser`, `StaffUser` or
 `AdminUser` (in `auth::extract`). Don't check roles by hand inside handlers.
@@ -234,6 +244,17 @@ so they get the strict `auth` rate-limit tier.
 everything into RFC 7807 `application/problem+json` responses, in one place. Don't
 build error responses by hand in handlers. Never leak internal error text to
 clients. Log it, and return a generic message with the request id.
+
+- When a client needs to act on *which* thing failed, use `AppError::Rejected`
+  with a stable `code` and the details as extra members, e.g.
+  `{"code": "out_of_stock", "sku_id": "…", "available": 0}`. Storefronts branch
+  on `code`, never on the `detail` text.
+- Simple admin-managed reference data (shipping zones and rates, tax rules)
+  shares `error::DataError` instead of each growing an identical enum.
+
+**Prices come from the server.** Clients send ids, quantities and choices
+(SKU, shipping option, address), never amounts. Placing an order re-runs the
+quote server-side, and any price-like fields in a request are ignored.
 
 **Stock.** Change `stock_available` only with relative, conditional updates
 (`SET stock_available = stock_available + $delta WHERE … AND stock_available + $delta >= 0`).

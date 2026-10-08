@@ -1,0 +1,65 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT s.id, s.code, s.name, s.stock_available, s.weight_g, p.id AS product_id, p.name AS product_name,\n                  sp.price_amount AS \"price_amount?\"\n           FROM skus s\n           JOIN products p ON p.id = s.product_id\n           LEFT JOIN sku_prices sp ON sp.sku_id = s.id AND sp.price_currency = $2\n           WHERE s.id = ANY($1) AND s.active AND p.status = 'active'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "code",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "stock_available",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "weight_g",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "product_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 6,
+        "name": "product_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "price_amount?",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "Bpchar"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "dc3f5b9686db70dbdbb03bf3dd7eb36d73c254d189c1f59116f17d6081482a58"
+}

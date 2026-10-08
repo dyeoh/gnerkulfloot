@@ -21,6 +21,14 @@ pub enum AppError {
     Forbidden,
     #[error("{0}")]
     Conflict(String),
+    /// A rejection with machine-readable details for the client, added to the
+    /// problem body as extra members (e.g. `{"sku_id": …, "available": 2}`).
+    #[error("{detail}")]
+    Rejected {
+        status: StatusCode,
+        detail: String,
+        extra: serde_json::Map<String, serde_json::Value>,
+    },
     #[error("{0}")]
     UnsupportedMediaType(String),
     #[error("too many requests")]
@@ -38,6 +46,31 @@ impl From<sqlx::Error> for AppError {
     }
 }
 
+/// Errors from simple admin-managed reference data (shipping zones and rates,
+/// tax rules), which only ever fail in these few ways.
+#[derive(Debug, thiserror::Error)]
+pub enum DataError {
+    #[error("not found")]
+    NotFound,
+    #[error("{0}")]
+    InvalidInput(String),
+    #[error("{0}")]
+    Conflict(String),
+    #[error(transparent)]
+    Database(#[from] sqlx::Error),
+}
+
+impl From<DataError> for AppError {
+    fn from(err: DataError) -> Self {
+        match err {
+            DataError::NotFound => AppError::NotFound,
+            DataError::InvalidInput(msg) => AppError::BadRequest(msg),
+            DataError::Conflict(msg) => AppError::Conflict(msg),
+            DataError::Database(e) => e.into(),
+        }
+    }
+}
+
 /// RFC 7807 problem details body.
 #[derive(Serialize)]
 struct Problem {
@@ -47,6 +80,8 @@ struct Problem {
     status: u16,
     #[serde(skip_serializing_if = "Option::is_none")]
     detail: Option<String>,
+    #[serde(flatten)]
+    extra: serde_json::Map<String, serde_json::Value>,
 }
 
 impl AppError {
@@ -57,6 +92,7 @@ impl AppError {
             AppError::Unauthorized => StatusCode::UNAUTHORIZED,
             AppError::Forbidden => StatusCode::FORBIDDEN,
             AppError::Conflict(_) => StatusCode::CONFLICT,
+            AppError::Rejected { status, .. } => *status,
             AppError::UnsupportedMediaType(_) => StatusCode::UNSUPPORTED_MEDIA_TYPE,
             AppError::RateLimited { .. } => StatusCode::TOO_MANY_REQUESTS,
             AppError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
@@ -71,6 +107,7 @@ impl IntoResponse for AppError {
             AppError::BadRequest(msg) | AppError::Conflict(msg) | AppError::UnsupportedMediaType(msg) => {
                 Some(msg.clone())
             }
+            AppError::Rejected { detail, .. } => Some(detail.clone()),
             AppError::Internal(err) => {
                 // Logged inside the request span, so the log line carries the request id
                 // the client sees in `x-request-id`.
@@ -84,6 +121,10 @@ impl IntoResponse for AppError {
             title: status.canonical_reason().unwrap_or("error"),
             status: status.as_u16(),
             detail,
+            extra: match &self {
+                AppError::Rejected { extra, .. } => extra.clone(),
+                _ => Default::default(),
+            },
         };
         let mut res = (status, [(header::CONTENT_TYPE, "application/problem+json")], Json(body)).into_response();
         match self {

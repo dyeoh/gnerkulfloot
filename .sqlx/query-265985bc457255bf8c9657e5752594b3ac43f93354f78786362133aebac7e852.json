@@ -1,0 +1,64 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO tax_rules (id, name, country, state, postcode_prefix, rate_bp, applies_to_shipping)\n         VALUES ($1, $2, $3, $4, $5, $6, $7)\n         RETURNING id, name, country, state, postcode_prefix, rate_bp, applies_to_shipping",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "country",
+        "type_info": "Bpchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "state",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "postcode_prefix",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "rate_bp",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 6,
+        "name": "applies_to_shipping",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Bpchar",
+        "Text",
+        "Text",
+        "Int4",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "265985bc457255bf8c9657e5752594b3ac43f93354f78786362133aebac7e852"
+}

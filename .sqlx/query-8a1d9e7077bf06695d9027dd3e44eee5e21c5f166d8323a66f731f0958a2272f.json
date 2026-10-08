@@ -1,0 +1,76 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, zone_id, name, price_currency, price_amount, min_weight_g, max_weight_g, free_over_amount, active, position\n         FROM shipping_rates WHERE ($1::uuid IS NULL OR id = $1) ORDER BY position, price_amount",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "zone_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "price_currency",
+        "type_info": "Bpchar"
+      },
+      {
+        "ordinal": 4,
+        "name": "price_amount",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 5,
+        "name": "min_weight_g",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 6,
+        "name": "max_weight_g",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 7,
+        "name": "free_over_amount",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 8,
+        "name": "active",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 9,
+        "name": "position",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "8a1d9e7077bf06695d9027dd3e44eee5e21c5f166d8323a66f731f0958a2272f"
+}

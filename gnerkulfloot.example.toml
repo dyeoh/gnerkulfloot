@@ -35,6 +35,21 @@ enabled = true
 # Each tier allows `burst` requests at once, then refills at `per_minute`. Counted per client IP.
 global = { per_minute = 300, burst = 100 }   # every /v1 request
 auth = { per_minute = 10, burst = 5 }        # login, register, setup
+orders = { per_minute = 10, burst = 5 }      # placing orders
+
+[checkout]
+payment_window_minutes = 1440  # unpaid orders hold stock this long (24 h); lower once payments confirm automatically
+max_lines = 100
+max_quantity = 999
+
+[tax]
+prices_include_tax = false     # true if shelf prices already include tax
+default_rate_bp = 0            # when no tax rule matches: hundredths of a percent, 6% = 600
+default_name = "Tax"
+rounding = "half_up"           # or "half_even"
+
+[shipping]
+adapters = ["flat_rate"]       # zones and rates managed via /v1/admin/shipping
 
 [storage]
 # Where uploaded images go. "local" (a folder, served at /media) or "s3" (any

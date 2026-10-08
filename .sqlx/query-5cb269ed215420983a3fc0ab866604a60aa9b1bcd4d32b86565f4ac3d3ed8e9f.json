@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE idempotency_keys SET response_body = $3 WHERE scope = $1 AND key = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Jsonb"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5cb269ed215420983a3fc0ab866604a60aa9b1bcd4d32b86565f4ac3d3ed8e9f"
+}

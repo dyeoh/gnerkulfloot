@@ -1,0 +1,61 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE tax_rules SET\n             name                = COALESCE($2, name),\n             rate_bp             = COALESCE($3, rate_bp),\n             applies_to_shipping = COALESCE($4, applies_to_shipping),\n             updated_at          = now()\n         WHERE id = $1\n         RETURNING id, name, country, state, postcode_prefix, rate_bp, applies_to_shipping",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "country",
+        "type_info": "Bpchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "state",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "postcode_prefix",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "rate_bp",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 6,
+        "name": "applies_to_shipping",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Int4",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "d275c3706322eb9c1eeff72622c7a3f190f691755bb52d30e289fa6b573d83c7"
+}

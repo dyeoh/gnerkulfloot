@@ -5,10 +5,14 @@
 pub mod app;
 pub mod auth;
 pub mod catalog;
+pub mod checkout;
 pub mod config;
 pub mod db;
 pub mod error;
 pub mod http;
 pub mod money;
 pub mod ratelimit;
+pub mod shipping;
 pub mod storage;
+pub mod tax;
+pub mod worker;

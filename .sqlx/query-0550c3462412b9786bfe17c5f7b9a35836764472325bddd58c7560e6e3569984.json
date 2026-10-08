@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO idempotency_keys (scope, key, request_hash, response_body)\n             VALUES ($1, $2, $3, 'null') ON CONFLICT DO NOTHING RETURNING key",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "key",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "0550c3462412b9786bfe17c5f7b9a35836764472325bddd58c7560e6e3569984"
+}

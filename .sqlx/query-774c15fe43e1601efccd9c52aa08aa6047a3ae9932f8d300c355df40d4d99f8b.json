@@ -1,0 +1,36 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT name, rate_bp, applies_to_shipping FROM tax_rules\n         WHERE country = $1\n           AND (state = '' OR state = $2)\n           AND starts_with($3, postcode_prefix)\n         ORDER BY length(postcode_prefix) DESC, (state <> '') DESC\n         LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "rate_bp",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "applies_to_shipping",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bpchar",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "774c15fe43e1601efccd9c52aa08aa6047a3ae9932f8d300c355df40d4d99f8b"
+}
