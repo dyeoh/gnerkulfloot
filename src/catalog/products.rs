@@ -18,7 +18,7 @@ use crate::storage::Storage;
 
 /// Only `active` products are visible to shoppers. Products are archived
 /// rather than deleted, so past orders can keep pointing at them.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, sqlx::Type, utoipa::ToSchema)]
 #[sqlx(type_name = "text", rename_all = "lowercase")]
 #[serde(rename_all = "lowercase")]
 pub enum ProductStatus {
@@ -27,13 +27,14 @@ pub enum ProductStatus {
     Archived,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct Product {
     pub id: Uuid,
     pub slug: String,
     pub name: String,
     pub description: String,
     pub status: ProductStatus,
+    #[schema(value_type = Object)]
     pub attributes: Value,
     #[serde(with = "time::serde::rfc3339")]
     pub created_at: OffsetDateTime,
@@ -42,7 +43,7 @@ pub struct Product {
 }
 
 /// A product with everything staff need to edit it.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct ProductDetail {
     #[serde(flatten)]
     pub product: Product,
@@ -51,24 +52,28 @@ pub struct ProductDetail {
     pub images: Vec<ImageView>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::ToSchema)]
 pub struct NewProduct {
     pub name: String,
+    /// Made from the name when left out.
     pub slug: Option<String>,
     #[serde(default)]
     pub description: String,
+    /// Defaults to `draft`.
     pub status: Option<ProductStatus>,
+    #[schema(value_type = Option<Object>)]
     pub attributes: Option<Value>,
     #[serde(default)]
     pub category_ids: Vec<Uuid>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::ToSchema)]
 pub struct ProductPatch {
     pub name: Option<String>,
     pub slug: Option<String>,
     pub description: Option<String>,
     pub status: Option<ProductStatus>,
+    #[schema(value_type = Option<Object>)]
     pub attributes: Option<Value>,
     /// Replaces the product's categories when present.
     pub category_ids: Option<Vec<Uuid>>,
@@ -192,15 +197,20 @@ pub async fn get(db: &PgPool, storage: &Storage, id: Uuid) -> Result<ProductDeta
 }
 
 /// Filters for the admin product list.
-#[derive(Deserialize, Default)]
+#[derive(Deserialize, Default, utoipa::IntoParams)]
 pub struct AdminListQuery {
+    #[param(inline)]
     pub status: Option<ProductStatus>,
+    /// Matches part of a product name, slug or SKU code.
     pub q: Option<String>,
+    /// 1-based page number.
+    #[param(minimum = 1, default = 1)]
     pub page: Option<u32>,
+    #[param(minimum = 1, maximum = 100, default = 24)]
     pub per_page: Option<u32>,
 }
 
-#[derive(Debug, Serialize, FromRow)]
+#[derive(Debug, Serialize, FromRow, utoipa::ToSchema)]
 pub struct AdminListItem {
     pub id: Uuid,
     pub slug: String,
