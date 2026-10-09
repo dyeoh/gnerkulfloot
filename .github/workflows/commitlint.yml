@@ -1,0 +1,20 @@
+# Release versions are computed from commit messages, so every commit that
+# reaches main must be a valid Conventional Commit.
+name: Commit lint
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  commitlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: wagoid/commitlint-github-action@v6
