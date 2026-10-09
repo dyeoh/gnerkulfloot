@@ -442,9 +442,22 @@ curl -X POST localhost:8080/v1/orders/$ORDER_ID/payment -H "x-order-token: $ACCE
 ```
 
 Calling it again returns the same open checkout, so a double-pressed "Pay"
-button is harmless. When the shopper comes back to `return_url`, show the
-order (`GET /v1/orders/{id}`) and its status. Don't treat the return itself as
-proof of payment: the order is only `paid` once HitPay confirms it.
+button is harmless. Don't treat the shopper's return to `return_url` as proof
+of payment: the order is only `paid` once HitPay confirms it.
+
+When the shopper comes back, and every few seconds while the order page waits,
+call the check endpoint. It asks HitPay about the payment right away and
+returns the order, so a completed payment shows as `paid` within seconds, even
+before the webhook arrives (or locally, where HitPay can't reach it):
+
+```sh
+curl -X POST localhost:8080/v1/orders/$ORDER_ID/payment/check -H "x-order-token: $ACCESS_TOKEN"
+# → the order, as GET /v1/orders/{id} returns it
+```
+
+It never trusts anything the shopper sends: it only triggers a lookup through
+HitPay's API, at most once every 3 seconds per payment, however often it's
+called. It needs the same access as viewing the order.
 
 ### How payments are confirmed
 

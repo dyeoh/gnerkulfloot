@@ -29,6 +29,8 @@ pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/checkout/quote", post(quote_basket))
         .route("/orders/{id}", get(get_order))
+        // Not under the "orders" limit: an order page polls it while it waits.
+        .route("/orders/{id}/payment/check", post(check_payment))
         .route("/me/orders", get(list_my_orders))
 }
 
@@ -99,6 +101,26 @@ async fn start_payment(
     let token = order_token(&headers, q);
     let payment = payments::start(&state, id, token.as_deref(), user.as_ref()).await?;
     Ok((StatusCode::CREATED, Json(payment)))
+}
+
+/// Checks the order's payment with the provider now, then returns the order.
+/// Call it when the shopper comes back from the payment page, and while the
+/// order page waits, so a payment is confirmed in seconds rather than when the
+/// webhook or reconciliation gets to it. Access is the same as viewing the order.
+async fn check_payment(
+    State(state): State<AppState>,
+    OptionalUser(user): OptionalUser,
+    Path(id): Path<Uuid>,
+    Query(q): Query<TokenQuery>,
+    headers: HeaderMap,
+) -> Result<Json<OrderView>, AppError> {
+    let token = order_token(&headers, q);
+    // Viewing first: only someone who may see the order can make us call the provider.
+    orders::view(&state.db, id, token.as_deref(), user.as_ref()).await?;
+    payments::check(&state, id).await?;
+    Ok(Json(
+        orders::view(&state.db, id, token.as_deref(), user.as_ref()).await?,
+    ))
 }
 
 /// Guests pass the order's `access_token` as `X-Order-Token` (or `?token=`);

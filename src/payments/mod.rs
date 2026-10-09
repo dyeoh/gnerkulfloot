@@ -486,6 +486,44 @@ pub async fn mark_paid_manually(db: &PgPool, order_id: Uuid) -> Result<(), PayEr
     Ok(())
 }
 
+/// How long an on-demand check waits before asking the provider about the
+/// same payment again, however often the order page polls.
+const CHECK_INTERVAL_SECS: i32 = 3;
+
+/// Asks the provider about an order's pending payments right now, for a
+/// shopper back from the payment page: they shouldn't wait for the webhook,
+/// or for reconciliation's two minutes.
+///
+/// Safe to expose to shoppers: like a webhook, it only triggers a lookup of
+/// the payment's real state through the provider's API; nothing the shopper
+/// sends is trusted. Each payment is checked at most once every
+/// `CHECK_INTERVAL_SECS`, and the claim is atomic, so polling tabs can't flood
+/// the provider. Provider errors are logged and left to reconciliation, so the
+/// caller can still show the order.
+pub async fn check(state: &AppState, order_id: Uuid) -> Result<(), sqlx::Error> {
+    if state.payments.is_none() {
+        return Ok(());
+    }
+    // Touching updated_at is the claim, and also moves the payment to the
+    // back of reconciliation's queue.
+    let due = sqlx::query_scalar!(
+        "UPDATE payments SET updated_at = now()
+         WHERE order_id = $1 AND status = 'pending'
+           AND updated_at < now() - make_interval(secs => $2)
+         RETURNING id",
+        order_id,
+        f64::from(CHECK_INTERVAL_SECS)
+    )
+    .fetch_all(&state.db)
+    .await?;
+    for id in due {
+        if let Err(e) = refresh(state, id).await {
+            tracing::warn!(payment_id = %id, error = %e, "checking payment failed; reconciliation will retry");
+        }
+    }
+    Ok(())
+}
+
 /// Re-checks pending payments whose webhook may have been lost. Returns how
 /// many were checked.
 pub async fn reconcile(state: &AppState) -> Result<usize, sqlx::Error> {

@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE payments SET updated_at = now()\n         WHERE order_id = $1 AND status = 'pending'\n           AND updated_at < now() - make_interval(secs => $2)\n         RETURNING id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Float8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "e93e2878bc98b55bcd059169ddbff0503ba27c74ad09abe9dc0e6c32a4e7499e"
+}

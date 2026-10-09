@@ -4,7 +4,10 @@ mod common;
 
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicUsize, Ordering},
+    },
 };
 
 use axum::{
@@ -28,6 +31,8 @@ struct FakeHitpay {
     requests: Arc<Mutex<Vec<HashMap<String, String>>>>,
     /// id → (status, amount as HitPay would send it)
     state: Arc<Mutex<HashMap<String, (String, Value)>>>,
+    /// How many times we asked HitPay for a payment's status.
+    lookups: Arc<AtomicUsize>,
 }
 
 impl FakeHitpay {
@@ -50,6 +55,10 @@ impl FakeHitpay {
     fn request_count(&self) -> usize {
         self.requests.lock().unwrap().len()
     }
+
+    fn lookup_count(&self) -> usize {
+        self.lookups.load(Ordering::SeqCst)
+    }
 }
 
 async fn create(
@@ -71,6 +80,7 @@ async fn create(
 }
 
 async fn status(State(fake): State<FakeHitpay>, Path(id): Path<String>) -> Result<Json<Value>, StatusCode> {
+    fake.lookups.fetch_add(1, Ordering::SeqCst);
     let state = fake.state.lock().unwrap();
     let (status, amount) = state.get(&id).ok_or(StatusCode::NOT_FOUND)?;
     Ok(Json(
@@ -289,6 +299,82 @@ async fn lost_webhooks_are_caught_by_reconciliation(db: PgPool) {
 
     sweep(&s).await;
     assert_eq!(order_status(&s, &id).await.0, "paid");
+}
+
+/// The order page's "has my payment gone through?" call.
+async fn check(s: &Shop, id: &str, token: &str) -> common::Res {
+    send_with_headers(
+        &s.app,
+        "POST",
+        &format!("/v1/orders/{id}/payment/check"),
+        &[("x-order-token", token)],
+        None,
+    )
+    .await
+}
+
+/// Ages the payments past the on-demand check's throttle (they were just created).
+async fn age_payments(s: &Shop) {
+    sqlx::query("UPDATE payments SET updated_at = now() - interval '10 seconds'")
+        .execute(&s.db)
+        .await
+        .unwrap();
+}
+
+#[sqlx::test]
+async fn a_shopper_back_from_paying_sees_it_confirmed_at_once(db: PgPool) {
+    let s = shop(db, 5).await;
+    let (id, token) = order(&s, 1).await;
+    pay(&s, &id, &token).await;
+    age_payments(&s).await;
+
+    // Not paid yet: the check returns the order, still waiting.
+    let waiting = check(&s, &id, &token).await;
+    assert_eq!(waiting.status, StatusCode::OK, "{:?}", waiting.json);
+    assert_eq!(waiting.json["status"], "pending_payment");
+
+    // Paid on HitPay, no webhook, well inside reconciliation's two minutes.
+    s.fake.set("pr_1", "completed", json!("18.00"));
+    age_payments(&s).await;
+    let paid = check(&s, &id, &token).await;
+    assert_eq!(paid.json["status"], "paid");
+    assert_eq!(paid.json["paid_via"], "hitpay");
+}
+
+#[sqlx::test]
+async fn checks_ask_the_provider_at_most_once_every_few_seconds(db: PgPool) {
+    let s = shop(db, 5).await;
+    let (id, token) = order(&s, 1).await;
+    pay(&s, &id, &token).await;
+    age_payments(&s).await;
+
+    for _ in 0..3 {
+        assert_eq!(check(&s, &id, &token).await.status, StatusCode::OK);
+    }
+    assert_eq!(s.fake.lookup_count(), 1, "a polling page mustn't flood HitPay");
+}
+
+#[sqlx::test]
+async fn only_someone_who_can_see_the_order_can_trigger_a_check(db: PgPool) {
+    let s = shop(db, 5).await;
+    let (id, token) = order(&s, 1).await;
+    pay(&s, &id, &token).await;
+    age_payments(&s).await;
+
+    assert_eq!(check(&s, &id, "ord_wrong").await.status, StatusCode::NOT_FOUND);
+    let anonymous = send(&s.app, "POST", &format!("/v1/orders/{id}/payment/check"), None, None).await;
+    assert_eq!(anonymous.status, StatusCode::NOT_FOUND);
+    assert_eq!(s.fake.lookup_count(), 0);
+}
+
+#[sqlx::test]
+async fn without_online_payments_a_check_just_returns_the_order(db: PgPool) {
+    let s = shop_with(db, common::config(), 5, FakeHitpay::default()).await;
+    let (id, token) = order(&s, 1).await;
+
+    let res = check(&s, &id, &token).await;
+    assert_eq!(res.status, StatusCode::OK, "{:?}", res.json);
+    assert_eq!(res.json["status"], "pending_payment");
 }
 
 /// Runs one pass of the background sweeps with the shop's config.
