@@ -18,7 +18,7 @@ use super::{Role, User};
 const TOKEN_PREFIX: &str = "gnk_";
 
 /// A freshly issued session. The only time the plain token exists.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct NewSession {
     pub token: String,
     #[serde(with = "time::serde::rfc3339")]
