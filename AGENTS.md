@@ -218,6 +218,14 @@ Handlers parse input, check auth, call a service function and shape the response
 Business rules live in service functions, which take a `&mut PgConnection` or a
 transaction, so tests can call them without HTTP.
 
+- A service that calls an adapter over the network (a payment provider, a
+  shipping quote) takes `&PgPool` instead and opens its own transactions
+  around the call, never across it. A transaction held open during an HTTP
+  call holds its row locks for as long as the provider takes to answer.
+- Services take the config sections and adapters they use (`&TaxConfig`,
+  `Option<&dyn PaymentAdapter>`, `checkout::Pricing`), never `AppState`.
+  `AppState` (`state.rs`) belongs to handlers, the worker and `main`.
+
 **SQL.**
 - Use `sqlx::query!` / `query_as!` by default. They're checked against the real
   schema at compile time. After changing a query, run `cargo sqlx prepare` and

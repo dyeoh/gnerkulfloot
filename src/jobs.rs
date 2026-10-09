@@ -11,13 +11,13 @@
 //! would not be, so payments never run as jobs).
 
 use serde::{Deserialize, Serialize};
-use sqlx::PgConnection;
+use sqlx::{PgConnection, PgPool};
 use uuid::Uuid;
 
 use crate::{
     checkout::orders,
-    mail::{self, OrderEmail},
-    state::AppState,
+    config::{CheckoutConfig, ShopConfig},
+    mail::{self, MailAdapter, OrderEmail},
 };
 
 /// How long a worker owns a claimed job before others may retry it.
@@ -85,7 +85,12 @@ enum JobError {
 
 /// Claims and runs the jobs that are due. Safe on any number of workers at
 /// once: each job is claimed by exactly one. Returns how many jobs ran.
-pub async fn run_due(state: &AppState) -> Result<usize, sqlx::Error> {
+pub async fn run_due(
+    db: &PgPool,
+    mail: &dyn MailAdapter,
+    shop: &ShopConfig,
+    checkout: &CheckoutConfig,
+) -> Result<usize, sqlx::Error> {
     let claimed = sqlx::query!(
         "UPDATE jobs SET locked_until = now() + make_interval(secs => $1), attempts = attempts + 1
          WHERE id IN (
@@ -99,7 +104,7 @@ pub async fn run_due(state: &AppState) -> Result<usize, sqlx::Error> {
         LOCK_SECS,
         BATCH
     )
-    .fetch_all(&state.db)
+    .fetch_all(db)
     .await?;
     // RETURNING doesn't keep the subquery's order, so restore queue order:
     // a customer must get "order received" before "payment received".
@@ -108,7 +113,7 @@ pub async fn run_due(state: &AppState) -> Result<usize, sqlx::Error> {
 
     for job in &claimed {
         let outcome = match serde_json::from_value::<Job>(job.payload.clone()) {
-            Ok(parsed) => run(state, &parsed).await,
+            Ok(parsed) => run(db, mail, shop, checkout, &parsed).await,
             Err(e) => Err(e.into()),
         };
         match outcome {
@@ -117,7 +122,7 @@ pub async fn run_due(state: &AppState) -> Result<usize, sqlx::Error> {
                     "UPDATE jobs SET completed_at = now(), locked_until = NULL, last_error = NULL WHERE id = $1",
                     job.id
                 )
-                .execute(&state.db)
+                .execute(db)
                 .await?;
             }
             Err(e) if job.attempts >= job.max_attempts => {
@@ -127,7 +132,7 @@ pub async fn run_due(state: &AppState) -> Result<usize, sqlx::Error> {
                     job.id,
                     e.to_string()
                 )
-                .execute(&state.db)
+                .execute(db)
                 .await?;
             }
             Err(e) => {
@@ -140,7 +145,7 @@ pub async fn run_due(state: &AppState) -> Result<usize, sqlx::Error> {
                     delay,
                     e.to_string()
                 )
-                .execute(&state.db)
+                .execute(db)
                 .await?;
             }
         }
@@ -148,17 +153,18 @@ pub async fn run_due(state: &AppState) -> Result<usize, sqlx::Error> {
     Ok(claimed.len())
 }
 
-async fn run(state: &AppState, job: &Job) -> Result<(), JobError> {
+async fn run(
+    db: &PgPool,
+    mail: &dyn MailAdapter,
+    shop: &ShopConfig,
+    checkout: &CheckoutConfig,
+    job: &Job,
+) -> Result<(), JobError> {
     match job {
         Job::OrderEmail { order_id, email } => {
-            let order = orders::load(&mut *state.db.acquire().await?, *order_id).await?;
-            let message = mail::render_order_email(
-                *email,
-                &order,
-                &state.config.shop.name,
-                state.config.checkout.payment_window_minutes,
-            )?;
-            state.mail.send(&message).await?;
+            let order = orders::load(&mut *db.acquire().await?, *order_id).await?;
+            let message = mail::render_order_email(*email, &order, &shop.name, checkout.payment_window_minutes)?;
+            mail.send(&message).await?;
             tracing::info!(order_id = %order_id, ?email, "order email sent");
             Ok(())
         }
@@ -166,12 +172,12 @@ async fn run(state: &AppState, job: &Job) -> Result<(), JobError> {
 }
 
 /// Deletes finished jobs older than `days`, keeping failed ones for inspection.
-pub async fn purge_completed(state: &AppState, days: i32) -> Result<u64, sqlx::Error> {
+pub async fn purge_completed(db: &PgPool, days: i32) -> Result<u64, sqlx::Error> {
     Ok(sqlx::query!(
         "DELETE FROM jobs WHERE completed_at < now() - make_interval(days => $1)",
         days
     )
-    .execute(&state.db)
+    .execute(db)
     .await?
     .rows_affected())
 }

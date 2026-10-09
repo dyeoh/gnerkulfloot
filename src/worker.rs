@@ -37,7 +37,7 @@ pub async fn run(state: AppState) {
 /// Runs the jobs that are due, until none are left.
 pub async fn run_jobs(state: &AppState) {
     loop {
-        match jobs::run_due(state).await {
+        match jobs::run_due(&state.db, &*state.mail, &state.config.shop, &state.config.checkout).await {
             Ok(0) => return,
             Ok(_) => continue,
             Err(e) => {
@@ -75,7 +75,7 @@ pub async fn run_once(state: &AppState) {
     {
         tracing::error!(error = %e, "purging idempotency keys failed");
     }
-    if let Err(e) = jobs::purge_completed(state, COMPLETED_JOBS_TTL_DAYS).await {
+    if let Err(e) = jobs::purge_completed(&state.db, COMPLETED_JOBS_TTL_DAYS).await {
         tracing::error!(error = %e, "purging finished jobs failed");
     }
     run_jobs(state).await;
