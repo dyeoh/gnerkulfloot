@@ -21,7 +21,7 @@ pub use flat_rate::FlatRate;
 use crate::{config::ShippingAdapterKind, money::Money};
 
 /// Where a parcel is going, as much as rate lookup needs.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, utoipa::ToSchema)]
 pub struct Destination {
     /// ISO 3166-1 alpha-2, e.g. `MY`.
     pub country: String,
@@ -57,7 +57,7 @@ pub struct ShipmentRequest {
 }
 
 /// One way to ship an order, with its price.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, utoipa::ToSchema)]
 pub struct ShippingOption {
     /// Stable id the client sends back to choose this option.
     pub id: String,

@@ -15,14 +15,16 @@ use crate::{
     tax::{self, TaxRate},
 };
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct LineInput {
     pub sku_id: Uuid,
     pub quantity: i32,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::ToSchema)]
 pub struct QuoteRequest {
+    /// ISO 4217 code; defaults to the shop's currency.
+    #[schema(value_type = Option<String>, example = "MYR")]
     pub currency: Option<Currency>,
     pub lines: Vec<LineInput>,
     pub destination: Destination,
@@ -30,8 +32,9 @@ pub struct QuoteRequest {
     pub shipping_option_id: Option<String>,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, utoipa::ToSchema)]
 pub struct Quote {
+    #[schema(value_type = String)]
     pub currency: Currency,
     pub lines: Vec<QuoteLine>,
     pub subtotal: Money,
@@ -43,7 +46,7 @@ pub struct Quote {
     pub total: Money,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, utoipa::ToSchema)]
 pub struct QuoteLine {
     pub sku_id: Uuid,
     pub product_id: Uuid,
@@ -59,7 +62,7 @@ pub struct QuoteLine {
     pub in_stock: bool,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, utoipa::ToSchema)]
 pub struct TaxSummary {
     pub name: String,
     pub rate_bp: i32,

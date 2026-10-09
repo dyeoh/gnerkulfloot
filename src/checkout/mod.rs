@@ -105,7 +105,7 @@ impl From<CheckoutError> for AppError {
 }
 
 /// A full delivery address.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, utoipa::ToSchema)]
 pub struct Address {
     pub name: String,
     pub line1: String,
