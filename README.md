@@ -565,6 +565,21 @@ The container is ~65 MB, runs as a non-root user, and stops cleanly on
 `docker stop`: in-flight requests finish first. With local image storage,
 images live in the `media` volume; back it up along with the database.
 
+### Using a released image
+Every release publishes an image to the GitHub Container Registry, so a server
+doesn't need to build from source:
+
+```
+ghcr.io/dyeoh/gnerkulfloot:0.2.3    # exact version
+ghcr.io/dyeoh/gnerkulfloot:0.2      # latest patch of 0.2
+ghcr.io/dyeoh/gnerkulfloot:latest
+```
+
+Pin an exact version in production and read [CHANGELOG.md](CHANGELOG.md)
+before upgrading. Versions follow [semver](https://semver.org): while we're on
+`0.x`, a minor bump (`0.2` → `0.3`) can contain breaking changes to the API,
+config or database. `gnerkulfloot --version` prints the running version.
+
 ### Bare metal with systemd, load balancing, scaling out *(planned)*
 Coming with the deployment phase: a hardened systemd unit, Caddy and nginx
 load-balancer configs, and a DigitalOcean Load Balancer recipe.

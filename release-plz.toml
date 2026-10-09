@@ -1,0 +1,27 @@
+# release-plz reads Conventional Commits since the last `vX.Y.Z` tag, proposes
+# the next version in a release PR, and tags + releases when that PR merges.
+# See AGENTS.md "Versioning and releases".
+
+[workspace]
+# Not on crates.io: versions come from git tags, and nothing is published.
+git_only = true
+git_tag_name = "v{{ version }}"
+git_release_enable = true
+# Release only when the release PR merges, not on every push to main.
+release_always = false
+# The binary has no public Rust API to check.
+semver_check = false
+changelog_update = true
+pr_labels = ["release"]
+
+[changelog]
+protect_breaking_commits = true
+commit_parsers = [
+    { message = "^feat", group = "Added" },
+    { message = "^fix", group = "Fixed" },
+    { message = "^perf", group = "Performance" },
+    { message = "^refactor", group = "Changed" },
+    { message = "^build", group = "Build" },
+    { message = "^chore\\(release\\)", skip = true },
+    { message = "^(ci|test|docs|chore|style)", skip = true },
+]

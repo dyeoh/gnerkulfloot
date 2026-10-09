@@ -360,6 +360,31 @@ walks you through it. Writing the message by hand is fine too:
 - **One logical change per commit**, and every commit should build and pass
   tests.
 
+### Versioning and releases
+The version in `Cargo.toml` follows [semver](https://semver.org) and is bumped
+by [release-plz](https://release-plz.dev) from commit types. **Don't edit the
+version or `CHANGELOG.md` by hand.**
+
+1. Every push to `main` updates an open `chore: release vX.Y.Z` PR with the
+   next version, `Cargo.lock` and changelog entries since the last `vX.Y.Z` tag.
+2. Merging that PR tags `vX.Y.Z`, creates a GitHub Release and pushes
+   `ghcr.io/dyeoh/gnerkulfloot:X.Y.Z` (plus `X.Y` and `latest`).
+
+How a commit moves the version:
+
+| commit | while on 0.x | from 1.0 |
+|---|---|---|
+| `fix`, `perf` | patch | patch |
+| `feat` | patch | minor |
+| `!` / `BREAKING CHANGE:` | minor | major |
+| anything else | no release | no release |
+
+This is why commit types matter: a `feat` written as `chore` never ships in a
+release, and a breaking change without `!` gets a version that lies about it.
+CI lints every commit on a pull request against Conventional Commits
+(`.commitlintrc.json`). Config lives in `release-plz.toml`, workflows in
+`.github/workflows/`.
+
 ## 6. Before you commit
 
 ```sh
