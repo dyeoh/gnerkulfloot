@@ -4,7 +4,7 @@
 
 use axum::{Router, extract::State, http::StatusCode, routing::get};
 
-use crate::app::AppState;
+use crate::state::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new()

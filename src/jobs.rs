@@ -15,9 +15,9 @@ use sqlx::PgConnection;
 use uuid::Uuid;
 
 use crate::{
-    app::AppState,
     checkout::orders,
     mail::{self, OrderEmail},
+    state::AppState,
 };
 
 /// How long a worker owns a claimed job before others may retry it.

@@ -11,7 +11,6 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    app::AppState,
     auth::extract::StaffUser,
     catalog::{
         categories::{self, Category, CategoryPatch, NewCategory},
@@ -21,6 +20,7 @@ use crate::{
         storefront::Page,
     },
     error::AppError,
+    state::AppState,
 };
 
 pub fn routes() -> Router<AppState> {

@@ -9,12 +9,12 @@ use serde::Serialize;
 use uuid::Uuid;
 
 use crate::{
-    app::AppState,
     auth::extract::StaffUser,
     catalog::storefront::Page,
     checkout::orders::{self, ListQuery, OrderSummary, OrderView},
     error::AppError,
     payments::{self, PaymentView},
+    state::AppState,
 };
 
 pub fn routes() -> Router<AppState> {

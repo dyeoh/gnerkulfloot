@@ -16,13 +16,13 @@ use super::{
     quote::{self, LineInput, QuoteRequest},
 };
 use crate::{
-    app::AppState,
     auth::{Role, User, users},
     catalog::storefront::{Page, paging},
     jobs::{self, Job},
     mail::OrderEmail,
     money::Money,
     shipping::ShippingOption,
+    state::AppState,
 };
 
 const IDEMPOTENCY_SCOPE: &str = "orders";

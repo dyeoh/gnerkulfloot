@@ -9,7 +9,7 @@ use axum::{
     routing::post,
 };
 
-use crate::{app::AppState, error::AppError, payments};
+use crate::{error::AppError, payments, state::AppState};
 
 pub fn routes() -> Router<AppState> {
     Router::new().route("/payments/{adapter}/webhook", post(receive_webhook))

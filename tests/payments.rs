@@ -379,7 +379,7 @@ async fn without_online_payments_a_check_just_returns_the_order(db: PgPool) {
 
 /// Runs one pass of the background sweeps with the shop's config.
 async fn sweep(s: &Shop) {
-    let state = gnerkulfloot::app::AppState::new(s.db.clone(), s.config.clone()).unwrap();
+    let state = gnerkulfloot::state::AppState::new(s.db.clone(), s.config.clone()).unwrap();
     gnerkulfloot::worker::run_once(&state).await;
 }
 

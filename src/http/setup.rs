@@ -9,7 +9,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 
 use super::auth::SessionResponse;
-use crate::{app::AppState, auth::setup, error::AppError};
+use crate::{auth::setup, error::AppError, state::AppState};
 
 /// The status check, which frontends may poll freely.
 pub fn routes() -> Router<AppState> {

@@ -1,13 +1,12 @@
-//! Shared application state and the router with its middleware stack.
+//! The router with its middleware stack.
 
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
 use axum::{
     Router,
     extract::DefaultBodyLimit,
     http::{HeaderName, HeaderValue, Method, StatusCode, header},
 };
-use sqlx::PgPool;
 use tower_http::{
     compression::CompressionLayer,
     cors::{AllowOrigin, CorsLayer},
@@ -17,56 +16,9 @@ use tower_http::{
     trace::TraceLayer,
 };
 
-use crate::{
-    config::Config,
-    http,
-    mail::{self, MailAdapter},
-    payments::{self, PaymentAdapter},
-    ratelimit::{MemoryRateLimiter, RateLimiter},
-    shipping::{self, ShippingAdapter},
-    storage::Storage,
-};
+use crate::{http, state::AppState};
 
 const REQUEST_ID: HeaderName = HeaderName::from_static("x-request-id");
-
-/// Everything a handler may need. Cheap to clone: every field is a handle.
-#[derive(Clone)]
-pub struct AppState {
-    pub db: PgPool,
-    pub config: Arc<Config>,
-    pub limiter: Arc<dyn RateLimiter>,
-    pub storage: Storage,
-    pub shipping: Arc<[Arc<dyn ShippingAdapter>]>,
-    /// `None` when online payments aren't configured.
-    pub payments: Option<Arc<dyn PaymentAdapter>>,
-    /// Order and account emails.
-    pub mail: Arc<dyn MailAdapter>,
-}
-
-impl AppState {
-    /// Builds the state, choosing adapters from config.
-    ///
-    /// # Errors
-    /// Fails if an adapter can't be set up, e.g. the media directory can't be created.
-    pub fn new(db: PgPool, config: Config) -> anyhow::Result<Self> {
-        // Redis-backed limiting arrives with the Redis adapter; until then each
-        // instance limits on its own.
-        let limiter: Arc<dyn RateLimiter> = MemoryRateLimiter::new();
-        let storage = Storage::from_config(&config.storage)?;
-        let shipping = shipping::from_config(&config.shipping.adapters, &db).into();
-        let payments = payments::from_config(&config.payments);
-        let mail = mail::from_config(&config.mail.transactional)?;
-        Ok(Self {
-            db,
-            config: Arc::new(config),
-            limiter,
-            storage,
-            shipping,
-            payments,
-            mail,
-        })
-    }
-}
 
 /// Builds the full router: routes plus middleware, outermost layer last.
 pub fn router(state: AppState) -> Router {

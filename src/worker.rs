@@ -9,7 +9,7 @@
 
 use std::time::Duration;
 
-use crate::{app::AppState, checkout::orders, jobs, payments};
+use crate::{checkout::orders, jobs, payments, state::AppState};
 
 const JOB_POLL: Duration = Duration::from_secs(2);
 /// Sweeps run every this many job polls (30 s).

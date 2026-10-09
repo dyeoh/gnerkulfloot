@@ -9,12 +9,12 @@ use iso_currency::Currency;
 use serde::Deserialize;
 
 use crate::{
-    app::AppState,
     catalog::{
         categories::{self, Category},
         storefront::{self, ListItem, ListQuery, Page, StoreProduct},
     },
     error::AppError,
+    state::AppState,
 };
 
 pub fn routes() -> Router<AppState> {

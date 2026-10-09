@@ -21,7 +21,6 @@ use uuid::Uuid;
 pub use hitpay::Hitpay;
 
 use crate::{
-    app::AppState,
     auth::User,
     checkout::{
         CheckoutError, inventory,
@@ -33,6 +32,7 @@ use crate::{
     jobs::{self, Job},
     mail::OrderEmail,
     money::Money,
+    state::AppState,
 };
 
 /// Pending payments older than this are re-checked with the provider, in case

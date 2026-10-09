@@ -10,9 +10,9 @@ use axum::{
 use tower_http::{services::ServeDir, set_header::SetResponseHeader};
 
 use crate::{
-    app::AppState,
     config::Quota,
     ratelimit::{self, Limit},
+    state::AppState,
     storage,
 };
 

@@ -5,10 +5,12 @@ use std::{io::BufRead, net::SocketAddr, path::PathBuf};
 use anyhow::Context;
 use clap::{Parser, Subcommand};
 use gnerkulfloot::{
-    app::{self, AppState},
+    app,
     auth::{Role, password, setup, users},
     config::{Config, LogFormat},
-    db, worker,
+    db,
+    state::AppState,
+    worker,
 };
 use tracing_subscriber::EnvFilter;
 

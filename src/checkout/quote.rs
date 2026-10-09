@@ -9,9 +9,9 @@ use uuid::Uuid;
 
 use super::CheckoutError;
 use crate::{
-    app::AppState,
     money::Money,
     shipping::{self, Destination, ShipmentRequest, ShippingOption},
+    state::AppState,
     tax::{self, TaxRate},
 };
 

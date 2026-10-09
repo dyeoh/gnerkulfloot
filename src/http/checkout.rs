@@ -11,7 +11,6 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::{
-    app::AppState,
     auth::extract::{CurrentUser, OptionalUser},
     catalog::storefront::Page,
     checkout::{
@@ -20,6 +19,7 @@ use crate::{
     },
     error::AppError,
     payments::{self, PaymentView},
+    state::AppState,
 };
 
 const IDEMPOTENCY_KEY: HeaderName = HeaderName::from_static("idempotency-key");

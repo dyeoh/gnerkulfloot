@@ -376,7 +376,7 @@ async fn unpaid_orders_expire_and_release_stock_once(db: PgPool) {
     let id = res.json["order"]["id"].as_str().unwrap().to_owned();
     assert_eq!(stock(&s.db).await, 2);
 
-    let state = gnerkulfloot::app::AppState::new(s.db.clone(), config).unwrap();
+    let state = gnerkulfloot::state::AppState::new(s.db.clone(), config).unwrap();
     gnerkulfloot::worker::run_once(&state).await;
     assert_eq!(stock(&s.db).await, 5);
     let status: String = sqlx::query_scalar("SELECT status FROM orders WHERE id = $1::uuid")

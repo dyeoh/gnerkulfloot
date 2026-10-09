@@ -9,13 +9,13 @@ use axum::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    app::AppState,
     auth::{
         self, LoggedIn, User,
         extract::{BearerToken, CurrentUser},
         session::{self, NewSession},
     },
     error::AppError,
+    state::AppState,
 };
 
 /// Routes that take passwords; mounted behind the strict "auth" rate limit.

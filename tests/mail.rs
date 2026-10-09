@@ -11,8 +11,8 @@ use async_trait::async_trait;
 use axum::{Router, http::StatusCode};
 use common::{admin_token, send};
 use gnerkulfloot::{
-    app::AppState,
     mail::{Email, Log, MailAdapter, MailError},
+    state::AppState,
     worker,
 };
 use serde_json::json;

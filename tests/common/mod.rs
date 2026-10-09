@@ -13,10 +13,11 @@ use axum::{
     response::Response,
 };
 use gnerkulfloot::{
-    app::{self, AppState},
+    app,
     config::{
         AuthConfig, Config, DatabaseConfig, RateLimitConfig, ServerConfig, SetupConfig, ShopConfig, StorageConfig,
     },
+    state::AppState,
 };
 use http_body_util::BodyExt;
 use serde_json::Value;

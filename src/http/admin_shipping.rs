@@ -9,10 +9,10 @@ use axum::{
 use uuid::Uuid;
 
 use crate::{
-    app::AppState,
     auth::extract::StaffUser,
     error::AppError,
     shipping::zones::{self, NewRate, Rate, RatePatch, Zone, ZoneInput, ZonePatch},
+    state::AppState,
     tax::{self, NewTaxRule, TaxRule, TaxRulePatch},
 };
 

@@ -4,9 +4,9 @@ use axum::{Json, Router, extract::State, http::StatusCode, routing::get};
 use serde::Deserialize;
 
 use crate::{
-    app::AppState,
     auth::{Role, User, extract::AdminUser, password, users},
     error::AppError,
+    state::AppState,
 };
 
 pub fn routes() -> Router<AppState> {

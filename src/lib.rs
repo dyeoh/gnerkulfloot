@@ -16,6 +16,7 @@ pub mod money;
 pub mod payments;
 pub mod ratelimit;
 pub mod shipping;
+pub mod state;
 pub mod storage;
 pub mod tax;
 pub mod worker;

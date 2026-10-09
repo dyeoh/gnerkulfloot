@@ -13,7 +13,7 @@ use axum::{
 };
 
 use super::{Role, User, session};
-use crate::{app::AppState, error::AppError};
+use crate::{error::AppError, state::AppState};
 
 pub struct BearerToken(pub String);
 
