@@ -12,6 +12,7 @@ migrate_on_start = true
 # Load balancers / reverse proxies in front of the app, as CIDRs. Their
 # X-Forwarded-For header is trusted for the client IP; nobody else's is.
 trusted_proxies = []           # e.g. ["10.0.0.0/8"] for a DigitalOcean VPC
+api_docs = true                # serve /openapi.json and the /docs reference
 
 [database]
 url = "postgres://gnerkulfloot:gnerkulfloot@localhost:5432/gnerkulfloot"

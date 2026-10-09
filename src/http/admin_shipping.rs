@@ -1,11 +1,12 @@
 //! Shipping zones and rates (for the flat-rate adapter) and tax rules.
 
 use axum::{
-    Json, Router,
+    Json,
     extract::{Path, State},
     http::StatusCode,
     routing::{get, patch, post},
 };
+use utoipa_axum::router::OpenApiRouter;
 use uuid::Uuid;
 
 use crate::{
@@ -16,8 +17,8 @@ use crate::{
     tax::{self, NewTaxRule, TaxRule, TaxRulePatch},
 };
 
-pub fn routes() -> Router<AppState> {
-    Router::new()
+pub fn routes() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new()
         .route("/admin/shipping/zones", get(list_zones).post(create_zone))
         .route("/admin/shipping/zones/{id}", patch(update_zone).delete(delete_zone))
         .route("/admin/shipping/zones/{id}/rates", post(create_rate))

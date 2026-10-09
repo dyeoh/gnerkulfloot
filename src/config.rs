@@ -61,6 +61,8 @@ pub struct ServerConfig {
     /// Proxies/load balancers whose `X-Forwarded-For` header we believe, as CIDRs
     /// (e.g. `10.0.0.0/8`). Anyone else could forge the header to dodge rate limits.
     pub trusted_proxies: Vec<IpNet>,
+    /// Serve the OpenAPI spec at `/openapi.json` and a browsable reference at `/docs`.
+    pub api_docs: bool,
 }
 
 impl Default for ServerConfig {
@@ -73,6 +75,7 @@ impl Default for ServerConfig {
             cors_origins: Vec::new(),
             migrate_on_start: true,
             trusted_proxies: Vec::new(),
+            api_docs: true,
         }
     }
 }

@@ -2,12 +2,13 @@
 //! `/healthz` answers "is the process alive"; `/readyz` answers "can it serve
 //! traffic", which needs the database. Point load-balancer health checks at `/readyz`.
 
-use axum::{Router, extract::State, http::StatusCode, routing::get};
+use axum::{extract::State, http::StatusCode, routing::get};
+use utoipa_axum::router::OpenApiRouter;
 
 use crate::state::AppState;
 
-pub fn routes() -> Router<AppState> {
-    Router::new()
+pub fn routes() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new()
         .route("/healthz", get(healthz))
         .route("/readyz", get(readyz))
 }

@@ -1,13 +1,14 @@
 //! Catalog management for staff: products, SKUs, stock, categories and images.
 
 use axum::{
-    Json, Router,
+    Json,
     body::Bytes,
     extract::{Path, Query, State},
     http::StatusCode,
     routing::{get, patch, post},
 };
 use serde::{Deserialize, Serialize};
+use utoipa_axum::router::OpenApiRouter;
 use uuid::Uuid;
 
 use crate::{
@@ -23,8 +24,8 @@ use crate::{
     state::AppState,
 };
 
-pub fn routes() -> Router<AppState> {
-    Router::new()
+pub fn routes() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new()
         .route("/admin/products", get(list_products).post(create_product))
         .route("/admin/products/{id}", get(get_product).patch(update_product))
         .route("/admin/products/{id}/skus", post(create_sku))

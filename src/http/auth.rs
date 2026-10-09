@@ -1,12 +1,13 @@
 //! Customer registration, login and logout. Staff and admins log in here too.
 
 use axum::{
-    Json, Router,
+    Json,
     extract::State,
     http::StatusCode,
     routing::{get, post},
 };
 use serde::{Deserialize, Serialize};
+use utoipa_axum::router::OpenApiRouter;
 
 use crate::{
     auth::{
@@ -19,14 +20,14 @@ use crate::{
 };
 
 /// Routes that take passwords; mounted behind the strict "auth" rate limit.
-pub fn credential_routes() -> Router<AppState> {
-    Router::new()
+pub fn credential_routes() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new()
         .route("/auth/register", post(register))
         .route("/auth/login", post(login))
 }
 
-pub fn routes() -> Router<AppState> {
-    Router::new()
+pub fn routes() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new()
         .route("/auth/logout", post(logout))
         .route("/auth/me", get(me))
 }

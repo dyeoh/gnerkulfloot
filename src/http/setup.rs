@@ -1,24 +1,25 @@
 //! First-time setup endpoints. See `auth::setup` for how the token works.
 
 use axum::{
-    Json, Router,
+    Json,
     extract::State,
     http::StatusCode,
     routing::{get, post},
 };
 use serde::{Deserialize, Serialize};
+use utoipa_axum::router::OpenApiRouter;
 
 use super::auth::SessionResponse;
 use crate::{auth::setup, error::AppError, state::AppState};
 
 /// The status check, which frontends may poll freely.
-pub fn routes() -> Router<AppState> {
-    Router::new().route("/setup", get(status))
+pub fn routes() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new().route("/setup", get(status))
 }
 
 /// The token exchange; mounted behind the strict "auth" rate limit.
-pub fn credential_routes() -> Router<AppState> {
-    Router::new().route("/setup", post(complete))
+pub fn credential_routes() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new().route("/setup", post(complete))
 }
 
 #[derive(Serialize)]

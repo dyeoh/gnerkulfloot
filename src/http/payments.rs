@@ -2,17 +2,17 @@
 //! throttled confirmation would leave a paid order looking unpaid.
 
 use axum::{
-    Router,
     body::Bytes,
     extract::{Path, State},
     http::{HeaderMap, StatusCode},
     routing::post,
 };
+use utoipa_axum::router::OpenApiRouter;
 
 use crate::{error::AppError, payments, state::AppState};
 
-pub fn routes() -> Router<AppState> {
-    Router::new().route("/payments/{adapter}/webhook", post(receive_webhook))
+pub fn routes() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new().route("/payments/{adapter}/webhook", post(receive_webhook))
 }
 
 /// Answers 200 once the webhook is verified and applied, 401 for a bad

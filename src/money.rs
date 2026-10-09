@@ -21,10 +21,17 @@ use serde::{Deserialize, Serialize};
 /// assert_eq!(total.apply_rate(6, 100, Rounding::HalfUp).unwrap().amount, 358);
 /// assert_eq!(total.to_string(), "59.70 MYR");
 /// ```
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, utoipa::ToSchema)]
+// The rustdoc above is for Rust readers; API readers get this instead.
+#[schema(
+    description = "An amount in one currency. `amount` is in the currency's minor units, so RM19.90 is 1990 and ¥500 is 500.",
+    example = json!({"amount": 1990, "currency": "MYR"})
+)]
 pub struct Money {
-    /// Minor units of `currency`.
+    /// Minor units of `currency`: 1990 is RM19.90, 500 is ¥500. Never a decimal.
     pub amount: i64,
+    /// ISO 4217 code.
+    #[schema(value_type = String, example = "MYR")]
     pub currency: Currency,
 }
 

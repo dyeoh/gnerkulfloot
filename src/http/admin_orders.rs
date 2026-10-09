@@ -1,11 +1,12 @@
 //! Order management for staff.
 
 use axum::{
-    Json, Router,
+    Json,
     extract::{Path, Query, State},
     routing::{get, post},
 };
 use serde::Serialize;
+use utoipa_axum::router::OpenApiRouter;
 use uuid::Uuid;
 
 use crate::{
@@ -17,8 +18,8 @@ use crate::{
     state::AppState,
 };
 
-pub fn routes() -> Router<AppState> {
-    Router::new()
+pub fn routes() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new()
         .route("/admin/orders", get(list_orders))
         .route("/admin/orders/{id}", get(get_order))
         .route("/admin/orders/{id}/cancel", post(cancel_order))

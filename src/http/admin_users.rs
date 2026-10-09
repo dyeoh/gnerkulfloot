@@ -1,7 +1,8 @@
 //! Admin management of staff and admin accounts.
 
-use axum::{Json, Router, extract::State, http::StatusCode, routing::get};
+use axum::{Json, extract::State, http::StatusCode, routing::get};
 use serde::Deserialize;
+use utoipa_axum::router::OpenApiRouter;
 
 use crate::{
     auth::{Role, User, extract::AdminUser, password, users},
@@ -9,8 +10,8 @@ use crate::{
     state::AppState,
 };
 
-pub fn routes() -> Router<AppState> {
-    Router::new().route("/admin/users", get(list_users).post(create_user))
+pub fn routes() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new().route("/admin/users", get(list_users).post(create_user))
 }
 
 async fn list_users(State(state): State<AppState>, _admin: AdminUser) -> Result<Json<Vec<User>>, AppError> {

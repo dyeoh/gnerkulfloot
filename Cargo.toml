@@ -40,6 +40,9 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 uuid = { version = "1", features = ["v4", "v7", "serde"] }
 webp = { version = "0.3", default-features = false }
+utoipa = { version = "5", features = ["axum_extras", "uuid", "time"] }
+utoipa-axum = "0.2"
+utoipa-scalar = { version = "0.3", features = ["axum"] }
 
 [dev-dependencies]
 image = { version = "0.25", default-features = false, features = ["png", "webp"] }

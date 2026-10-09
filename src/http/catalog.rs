@@ -1,12 +1,13 @@
 //! Public catalog: browsing and product pages.
 
 use axum::{
-    Json, Router,
+    Json,
     extract::{Path, Query, State},
     routing::get,
 };
 use iso_currency::Currency;
 use serde::Deserialize;
+use utoipa_axum::router::OpenApiRouter;
 
 use crate::{
     catalog::{
@@ -17,8 +18,8 @@ use crate::{
     state::AppState,
 };
 
-pub fn routes() -> Router<AppState> {
-    Router::new()
+pub fn routes() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new()
         .route("/products", get(list_products))
         .route("/products/{slug}", get(get_product))
         .route("/categories", get(list_categories))

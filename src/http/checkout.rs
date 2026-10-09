@@ -1,13 +1,14 @@
 //! Public checkout: quoting a basket, placing orders, and viewing them.
 
 use axum::{
-    Json, Router,
+    Json,
     extract::{Path, Query, State},
     http::{HeaderMap, HeaderName, HeaderValue, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
 };
 use serde::Deserialize;
+use utoipa_axum::router::OpenApiRouter;
 use uuid::Uuid;
 
 use crate::{
@@ -25,8 +26,8 @@ use crate::{
 const IDEMPOTENCY_KEY: HeaderName = HeaderName::from_static("idempotency-key");
 const ORDER_TOKEN: HeaderName = HeaderName::from_static("x-order-token");
 
-pub fn routes() -> Router<AppState> {
-    Router::new()
+pub fn routes() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new()
         .route("/checkout/quote", post(quote_basket))
         .route("/orders/{id}", get(get_order))
         // Not under the "orders" limit: an order page polls it while it waits.
@@ -36,8 +37,8 @@ pub fn routes() -> Router<AppState> {
 
 /// Placing and paying for orders; mounted behind the "orders" rate limit,
 /// since both reserve something (stock, a provider checkout).
-pub fn order_routes() -> Router<AppState> {
-    Router::new()
+pub fn order_routes() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new()
         .route("/orders", post(create_order))
         .route("/orders/{id}/payment", post(start_payment))
 }
