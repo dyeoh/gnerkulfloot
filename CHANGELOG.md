@@ -8,3 +8,5 @@ Entries are generated from commit messages by release-plz; see AGENTS.md
 "Versioning and releases".
 
 ## [Unreleased]
+
+## [0.1.1](https://github.com/dyeoh/gnerkulfloot/compare/v0.1.0...v0.1.1) - 2026-10-09
