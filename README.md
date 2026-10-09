@@ -86,6 +86,7 @@ Every key is listed there with a comment. The ones you're most likely to change:
 | `server.log_format` | `text` | `json` in production, so log tools can parse it. |
 | `server.migrate_on_start` | `true` | Turn off if you'd rather run `gnerkulfloot migrate` yourself during deploys. |
 | `server.trusted_proxies` | `[]` | CIDRs of your load balancer/reverse proxy. **Set this when running behind one**, or every visitor looks like the proxy and shares one rate limit. |
+| `server.api_docs` | `true` | Serve the OpenAPI spec at `/openapi.json` and an interactive API reference at `/docs`. |
 | `rate_limit.global`, `rate_limit.auth` | 300/min, 10/min | Requests allowed per client IP. `auth` covers login, register and setup. |
 | `auth.max_failed_logins`, `auth.lockout_minutes` | 5, 15 | Wrong passwords in a row before an account is locked, and for how long. |
 | `auth.session_ttl_hours` | 720 | How long a login lasts (30 days). |
@@ -202,6 +203,10 @@ All commands accept `--config FILE`.
 
 ## API basics
 
+- **Reference:** every endpoint, with its request and response shapes, is
+  described in an OpenAPI 3.1 spec at `GET /openapi.json`, and browsable at
+  `GET /docs`, where you can also try requests. Feed the spec to a client
+  generator for your frontend. Turn both off with `server.api_docs = false`.
 - **Health:** `GET /healthz` returns 200 while the process is alive. `GET /readyz`
   returns 200 only when the database is reachable too. Point load-balancer health
   checks at `/readyz`.

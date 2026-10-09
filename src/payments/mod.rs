@@ -148,7 +148,7 @@ impl From<PayError> for AppError {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct PaymentView {
     pub id: Uuid,
     pub adapter: String,

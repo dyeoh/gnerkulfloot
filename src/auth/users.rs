@@ -9,7 +9,7 @@ use super::AuthError;
 
 /// What an account may do. Admins manage everything (including staff), staff
 /// run day-to-day operations, customers can only see their own orders.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, sqlx::Type, utoipa::ToSchema)]
 #[sqlx(type_name = "text", rename_all = "lowercase")]
 #[serde(rename_all = "lowercase")]
 pub enum Role {
@@ -18,7 +18,7 @@ pub enum Role {
     Customer,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, utoipa::ToSchema)]
 pub struct User {
     pub id: Uuid,
     pub email: String,

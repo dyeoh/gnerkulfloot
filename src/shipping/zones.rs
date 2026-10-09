@@ -12,15 +12,16 @@ use crate::{
     error::DataError,
 };
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, utoipa::ToSchema)]
 pub struct Region {
+    /// ISO 3166-1 alpha-2, e.g. `MY`.
     pub country: String,
     /// Empty for the whole country.
     #[serde(default)]
     pub state: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct Zone {
     pub id: Uuid,
     pub name: String,
@@ -28,43 +29,54 @@ pub struct Zone {
     pub rates: Vec<Rate>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct Rate {
     pub id: Uuid,
     pub zone_id: Uuid,
     pub name: String,
+    #[schema(value_type = String)]
     pub currency: Currency,
+    /// Price in minor units of `currency` (800 is RM8.00).
     pub amount: i64,
+    /// Applies to parcels from this weight, in grams.
     pub min_weight_g: i32,
+    /// Up to this weight in grams; no upper limit when null.
     pub max_weight_g: Option<i32>,
+    /// Free when the subtotal reaches this, in minor units.
     pub free_over_amount: Option<i64>,
     pub active: bool,
     pub position: i32,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::ToSchema)]
 pub struct ZoneInput {
     pub name: String,
     pub regions: Vec<Region>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::ToSchema)]
 pub struct ZonePatch {
     pub name: Option<String>,
     /// Replaces all regions when present.
     pub regions: Option<Vec<Region>>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::ToSchema)]
 pub struct NewRate {
     pub name: String,
+    #[schema(value_type = String)]
     pub currency: Currency,
+    /// Price in minor units of `currency` (800 is RM8.00).
     pub amount: i64,
+    /// Applies to parcels from this weight, in grams.
     #[serde(default)]
     pub min_weight_g: i32,
+    /// Up to this weight in grams; no upper limit when null.
     pub max_weight_g: Option<i32>,
+    /// Free when the subtotal reaches this, in minor units.
     pub free_over_amount: Option<i64>,
     #[serde(default = "yes")]
+    #[schema(default = true)]
     pub active: bool,
     #[serde(default)]
     pub position: i32,
@@ -74,13 +86,16 @@ fn yes() -> bool {
     true
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::ToSchema)]
 pub struct RatePatch {
     pub name: Option<String>,
+    /// Minor units of the rate's currency.
     pub amount: Option<i64>,
     pub min_weight_g: Option<i32>,
+    /// `null` removes the upper limit; leave it out to keep it.
     #[serde(default, deserialize_with = "double_option")]
     pub max_weight_g: Option<Option<i32>>,
+    /// `null` removes free shipping; leave it out to keep it.
     #[serde(default, deserialize_with = "double_option")]
     pub free_over_amount: Option<Option<i64>>,
     pub active: Option<bool>,

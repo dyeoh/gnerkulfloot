@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use super::{CatalogError, double_option, map_unique, require_name, slugify, validate_slug};
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct Category {
     pub id: Uuid,
     pub parent_id: Option<Uuid>,
@@ -17,9 +17,10 @@ pub struct Category {
     pub position: i32,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::ToSchema)]
 pub struct NewCategory {
     pub name: String,
+    /// Made from the name when left out.
     pub slug: Option<String>,
     pub parent_id: Option<Uuid>,
     #[serde(default)]
@@ -28,7 +29,7 @@ pub struct NewCategory {
     pub position: i32,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::ToSchema)]
 pub struct CategoryPatch {
     pub name: Option<String>,
     pub slug: Option<String>,

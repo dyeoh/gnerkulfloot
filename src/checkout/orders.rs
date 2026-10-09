@@ -28,7 +28,7 @@ const IDEMPOTENCY_SCOPE: &str = "orders";
 /// Expired orders are released in batches so one sweep never holds locks for long.
 const EXPIRE_BATCH: i64 = 100;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, sqlx::Type, utoipa::ToSchema)]
 #[sqlx(type_name = "text", rename_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
 pub enum OrderStatus {
@@ -43,8 +43,10 @@ pub enum OrderStatus {
 
 /// What a client sends to place an order. Serialized as-is to fingerprint
 /// the request for idempotency, so field order matters only to that hash.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct NewOrder {
+    /// ISO 4217 code; defaults to the shop's currency.
+    #[schema(value_type = Option<String>, example = "MYR")]
     pub currency: Option<Currency>,
     pub email: String,
     pub lines: Vec<LineInput>,
@@ -54,12 +56,13 @@ pub struct NewOrder {
     pub notes: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct OrderView {
     pub id: Uuid,
     pub number: i64,
     pub status: OrderStatus,
     pub email: String,
+    #[schema(value_type = String)]
     pub currency: Currency,
     pub lines: Vec<OrderLineView>,
     pub subtotal: Money,
@@ -80,7 +83,7 @@ pub struct OrderView {
     pub created_at: OffsetDateTime,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct OrderLineView {
     pub sku_id: Uuid,
     pub product_id: Uuid,
@@ -93,7 +96,7 @@ pub struct OrderLineView {
     pub tax: Money,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct OrderTax {
     pub name: String,
     pub rate_bp: i32,
@@ -103,7 +106,7 @@ pub struct OrderTax {
 
 /// The response to placing an order. `access_token` lets a guest view the
 /// order later; it is only ever shown here.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct PlacedOrder {
     pub order: OrderView,
     pub access_token: String,
@@ -482,7 +485,7 @@ pub struct OrderSummaryRow {
     pub created_at: OffsetDateTime,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct OrderSummary {
     pub id: Uuid,
     pub number: i64,
@@ -508,15 +511,19 @@ impl From<OrderSummaryRow> for OrderSummary {
     }
 }
 
-#[derive(Deserialize, Default)]
+#[derive(Deserialize, Default, utoipa::IntoParams)]
 pub struct ListQuery {
+    #[param(inline)]
     pub status: Option<OrderStatus>,
     /// Matches an order number exactly, or part of an email address.
     pub q: Option<String>,
     /// Only orders a person needs to look at (e.g. paid after their stock sold out).
     #[serde(default)]
     pub needs_review: bool,
+    /// 1-based page number.
+    #[param(minimum = 1, default = 1)]
     pub page: Option<u32>,
+    #[param(minimum = 1, maximum = 100, default = 24)]
     pub per_page: Option<u32>,
 }
 

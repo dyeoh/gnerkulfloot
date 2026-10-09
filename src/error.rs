@@ -71,16 +71,27 @@ impl From<DataError> for AppError {
     }
 }
 
-/// RFC 7807 problem details body.
-#[derive(Serialize)]
-struct Problem {
+/// RFC 7807 problem details body. Public so the OpenAPI spec can describe
+/// every error response with it.
+#[derive(Serialize, utoipa::ToSchema)]
+#[schema(
+    description = "RFC 7807 problem details. Some rejections add members: a stable `code` to branch on \
+        (e.g. `out_of_stock`), plus details such as `sku_id` and `available`."
+)]
+#[schema(example = json!({"type": "about:blank", "title": "Conflict", "status": 409, "detail": "out of stock", "code": "out_of_stock"}))]
+pub struct Problem {
+    /// Always `about:blank`.
     #[serde(rename = "type")]
     kind: &'static str,
+    /// The HTTP status's reason phrase.
     title: &'static str,
     status: u16,
+    /// A human-readable explanation. Show it, but never branch on it.
     #[serde(skip_serializing_if = "Option::is_none")]
     detail: Option<String>,
+    /// Extra members on some rejections (described on the struct's schema).
     #[serde(flatten)]
+    #[schema(ignore)]
     extra: serde_json::Map<String, serde_json::Value>,
 }
 

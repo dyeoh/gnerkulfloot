@@ -16,41 +16,49 @@ use uuid::Uuid;
 use super::{CatalogError, map_unique};
 
 /// A SKU's price in one currency, in minor units.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct SkuPrice {
+    #[schema(value_type = String)]
     pub currency: Currency,
+    /// Minor units of `currency` (1990 is RM19.90).
     pub amount: i64,
     /// Optional "was" price, shown struck through.
     pub compare_at_amount: Option<i64>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct Sku {
     pub id: Uuid,
     pub product_id: Uuid,
     pub code: String,
     pub name: String,
+    #[schema(value_type = Object)]
     pub options: Value,
+    /// Units for sale now, with units held by unpaid orders already taken off.
     pub stock_available: i32,
+    /// Weight in grams.
     pub weight_g: i32,
     pub active: bool,
     pub position: i32,
     pub prices: Vec<SkuPrice>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::ToSchema)]
 pub struct NewSku {
     pub code: String,
     #[serde(default)]
     pub name: String,
     #[serde(default = "empty_object")]
+    #[schema(value_type = Object)]
     pub options: Value,
     /// Opening stock.
     #[serde(default)]
     pub stock_available: i32,
+    /// Weight in grams, for shipping rates.
     #[serde(default)]
     pub weight_g: i32,
     #[serde(default = "yes")]
+    #[schema(default = true)]
     pub active: bool,
     #[serde(default)]
     pub position: i32,
@@ -67,10 +75,11 @@ fn yes() -> bool {
 }
 
 /// Partial update. Stock isn't here on purpose; see the module docs.
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::ToSchema)]
 pub struct SkuPatch {
     pub code: Option<String>,
     pub name: Option<String>,
+    #[schema(value_type = Option<Object>)]
     pub options: Option<Value>,
     pub weight_g: Option<i32>,
     pub active: Option<bool>,

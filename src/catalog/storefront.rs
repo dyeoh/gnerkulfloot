@@ -20,7 +20,7 @@ const MAX_PER_PAGE: u32 = 100;
 /// One page of results. `has_more` instead of a total count: counting every
 /// match on each request is the slow part of pagination and storefronts
 /// rarely need it.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct Page<T> {
     pub items: Vec<T>,
     pub page: u32,
@@ -54,7 +54,7 @@ pub(crate) fn like_pattern(term: &str) -> String {
     format!("%{escaped}%")
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Sort {
     /// Best match first when searching, otherwise newest first.
@@ -66,20 +66,26 @@ pub enum Sort {
     Name,
 }
 
-#[derive(Deserialize, Default)]
+#[derive(Deserialize, Default, utoipa::IntoParams)]
 pub struct ListQuery {
+    /// ISO 4217 code; defaults to the shop's currency.
+    #[param(value_type = Option<String>, example = "MYR")]
     pub currency: Option<Currency>,
     /// Free-text search over names and descriptions; tolerant of typos.
     pub q: Option<String>,
     /// Category slug.
     pub category: Option<String>,
     #[serde(default)]
+    #[param(inline)]
     pub sort: Sort,
+    /// 1-based page number.
+    #[param(minimum = 1, default = 1)]
     pub page: Option<u32>,
+    #[param(minimum = 1, maximum = 100, default = 24)]
     pub per_page: Option<u32>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct ListItem {
     pub id: Uuid,
     pub slug: String,
@@ -199,31 +205,34 @@ pub async fn list(
     Ok(Page::new(items, page, per_page))
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct StoreProduct {
     pub id: Uuid,
     pub slug: String,
     pub name: String,
     pub description: String,
+    #[schema(value_type = Object)]
     pub attributes: Value,
+    #[schema(value_type = String)]
     pub currency: Currency,
     pub categories: Vec<CategoryRef>,
     pub images: Vec<ImageView>,
     pub variants: Vec<StoreVariant>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct CategoryRef {
     pub id: Uuid,
     pub slug: String,
     pub name: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct StoreVariant {
     pub id: Uuid,
     pub code: String,
     pub name: String,
+    #[schema(value_type = Object)]
     pub options: Value,
     /// `None` when this variant isn't sold in the requested currency.
     pub price: Option<Money>,

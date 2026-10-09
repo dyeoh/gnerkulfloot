@@ -307,8 +307,29 @@ accept an `Idempotency-Key` header and replay the original response for repeats.
 - Concurrency-sensitive code (stock, payments) gets a test that hammers it in
   parallel.
 
-**API docs.** Annotate handlers and DTOs with `utoipa` so `/openapi.json` stays
-accurate for frontend developers.
+**API docs.** The OpenAPI spec at `/openapi.json` (rendered at `/docs`) is
+generated from the code, so it stays accurate for frontend developers only if
+every endpoint is annotated.
+
+- Register routes with `.routes(routes!(handler))` on the module's
+  `OpenApiRouter`, never `.route()`, which adds a route the spec never hears
+  about. A unit test in `http/mod.rs` fails on `.route(`.
+- Give each handler `#[utoipa::path(...)]` with a `tag`, a `security` entry if
+  it needs a login, and every response it can return. Its `///` doc's first
+  line becomes the summary (keep it short, e.g. `/// Place an order`), and the
+  paragraphs after a blank `///` become the description.
+- Use the shared responses in `http::docs` (`BadRequest`, `Unauthorized`,
+  `Forbidden`, `NotFound`, `RateLimited`) for generic errors. Write a `Rejected`
+  error out in full (`body = Problem`, its status, and its `code` in the
+  description), because storefronts branch on that code.
+- Derive `utoipa::ToSchema` on request and response types and `IntoParams` on
+  query structs. Types utoipa can't see through need a hint:
+  `#[schema(value_type = String)]` for `Currency`, `value_type = Object` for
+  `serde_json::Value`, and `#[param(inline)]` for an enum used in a query.
+- Admin handlers that share a function name with a storefront handler need an
+  `operation_id = "admin_…"`: ids must be unique.
+- Adding or removing an endpoint means updating `OPERATIONS` in
+  `tests/openapi.rs` in the same commit.
 
 ---
 

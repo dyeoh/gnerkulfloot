@@ -82,33 +82,40 @@ pub fn tax_on(amount: Money, rate_bp: i32, inclusive: bool, rounding: Rounding) 
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct TaxRule {
     pub id: Uuid,
     pub name: String,
+    /// ISO 3166-1 alpha-2, e.g. `MY`.
     pub country: String,
     pub state: String,
+    /// Matches postcodes starting with this; empty matches all.
     pub postcode_prefix: String,
+    /// Hundredths of a percent: 6% is 600.
     pub rate_bp: i32,
     pub applies_to_shipping: bool,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::ToSchema)]
 pub struct NewTaxRule {
     pub name: String,
+    /// ISO 3166-1 alpha-2, e.g. `MY`.
     pub country: String,
     #[serde(default)]
     pub state: String,
+    /// Matches postcodes starting with this; empty matches all.
     #[serde(default)]
     pub postcode_prefix: String,
+    /// Hundredths of a percent: 6% is 600.
     pub rate_bp: i32,
     #[serde(default)]
     pub applies_to_shipping: bool,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::ToSchema)]
 pub struct TaxRulePatch {
     pub name: Option<String>,
+    /// Hundredths of a percent: 6% is 600.
     pub rate_bp: Option<i32>,
     pub applies_to_shipping: Option<bool>,
 }
