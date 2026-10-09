@@ -27,7 +27,7 @@ use crate::{error::Problem, money::Money};
     modifiers(&SecuritySchemes),
     components(
         schemas(Problem, Money),
-        responses(BadRequest, Unauthorized, Forbidden, NotFound, Conflict, RateLimited),
+        responses(BadRequest, Unauthorized, Forbidden, NotFound, RateLimited),
     ),
     tags(
         (name = "catalog", description = "Browsing products and categories"),
@@ -97,12 +97,6 @@ pub struct Forbidden(Problem);
 #[derive(ToResponse)]
 #[response(content_type = "application/problem+json")]
 pub struct NotFound(Problem);
-
-/// The request clashes with the current state, e.g. a duplicate slug.
-#[allow(dead_code)]
-#[derive(ToResponse)]
-#[response(content_type = "application/problem+json")]
-pub struct Conflict(Problem);
 
 /// Too many requests from this client; wait `Retry-After` seconds.
 #[allow(dead_code)]
