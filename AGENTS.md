@@ -368,3 +368,6 @@ cargo clippy --all-targets -- -D warnings
 cargo sqlx prepare --check   # only if queries changed
 cargo test
 ```
+
+CI (`.github/workflows/ci.yml`) runs the same checks on every pull request and
+on `main`, against a fresh Postgres.
