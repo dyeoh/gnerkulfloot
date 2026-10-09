@@ -74,6 +74,7 @@ async fn list_orders(
 #[utoipa::path(
     get,
     path = "/admin/orders/{id}",
+    operation_id = "admin_get_order",
     tag = "admin-orders",
     params(("id" = Uuid, Path, description = "Order id")),
     security(("bearer" = [])),
