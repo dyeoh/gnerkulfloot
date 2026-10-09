@@ -112,7 +112,44 @@ fn cors(origins: &[String]) -> CorsLayer {
             header::AUTHORIZATION,
             header::CONTENT_TYPE,
             HeaderName::from_static("idempotency-key"),
+            // Guests' key to their order (GET /v1/orders/{id}, starting a payment).
+            HeaderName::from_static("x-order-token"),
         ])
-        .expose_headers([REQUEST_ID])
+        .expose_headers([REQUEST_ID, header::RETRY_AFTER])
         .max_age(Duration::from_secs(3600))
+}
+
+#[cfg(test)]
+mod tests {
+    use axum::{body::Body, http::Request, routing::get};
+    use tower::ServiceExt;
+
+    use super::*;
+
+    /// A browser storefront sends these headers; the preflight must allow every one,
+    /// or the browser blocks the request before it reaches us.
+    #[tokio::test]
+    async fn cors_preflight_allows_the_storefront_headers() {
+        let app = Router::new()
+            .route("/", get(|| async {}))
+            .layer(cors(&["https://shop.example".into()]));
+        let preflight = Request::builder()
+            .method(Method::OPTIONS)
+            .uri("/")
+            .header(header::ORIGIN, "https://shop.example")
+            .header(header::ACCESS_CONTROL_REQUEST_METHOD, "POST")
+            .header(
+                header::ACCESS_CONTROL_REQUEST_HEADERS,
+                "authorization,content-type,idempotency-key,x-order-token",
+            )
+            .body(Body::empty())
+            .unwrap();
+        let response = app.oneshot(preflight).await.unwrap();
+        let allowed = response.headers()[header::ACCESS_CONTROL_ALLOW_HEADERS]
+            .to_str()
+            .unwrap();
+        for name in ["authorization", "content-type", "idempotency-key", "x-order-token"] {
+            assert!(allowed.contains(name), "{name} missing from {allowed}");
+        }
+    }
 }
