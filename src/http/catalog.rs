@@ -3,11 +3,11 @@
 use axum::{
     Json,
     extract::{Path, Query, State},
-    routing::get,
 };
 use iso_currency::Currency;
 use serde::Deserialize;
-use utoipa_axum::router::OpenApiRouter;
+use utoipa::IntoParams;
+use utoipa_axum::{router::OpenApiRouter, routes};
 
 use crate::{
     catalog::{
@@ -15,16 +15,31 @@ use crate::{
         storefront::{self, ListItem, ListQuery, Page, StoreProduct},
     },
     error::AppError,
+    http::docs::{BadRequest, NotFound},
     state::AppState,
 };
 
 pub fn routes() -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
-        .route("/products", get(list_products))
-        .route("/products/{slug}", get(get_product))
-        .route("/categories", get(list_categories))
+        .routes(routes!(list_products))
+        .routes(routes!(get_product))
+        .routes(routes!(list_categories))
 }
 
+/// List products
+///
+/// Lists active products priced in the requested currency. A product with no
+/// price in that currency isn't listed, since there's no automatic conversion.
+#[utoipa::path(
+    get,
+    path = "/products",
+    tag = "catalog",
+    params(ListQuery),
+    responses(
+        (status = 200, description = "A page of products", body = Page<ListItem>),
+        (status = 400, response = BadRequest),
+    ),
+)]
 async fn list_products(
     State(state): State<AppState>,
     Query(q): Query<ListQuery>,
@@ -33,11 +48,28 @@ async fn list_products(
     Ok(Json(storefront::list(&state.db, &state.storage, currency, q).await?))
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, IntoParams)]
 struct CurrencyQuery {
+    /// ISO 4217 code; defaults to the shop's currency.
+    #[param(value_type = Option<String>, example = "MYR")]
     currency: Option<Currency>,
 }
 
+/// Get a product
+///
+/// A product page, with every variant priced in the requested currency. An
+/// inactive product, or one with no price in that currency, is not found.
+
+#[utoipa::path(
+    get,
+    path = "/products/{slug}",
+    tag = "catalog",
+    params(("slug" = String, Path, description = "The product's slug"), CurrencyQuery),
+    responses(
+        (status = 200, description = "The product", body = StoreProduct),
+        (status = 404, response = NotFound),
+    ),
+)]
 async fn get_product(
     State(state): State<AppState>,
     Path(slug): Path<String>,
@@ -47,6 +79,15 @@ async fn get_product(
     Ok(Json(storefront::get(&state.db, &state.storage, &slug, currency).await?))
 }
 
+/// List categories
+///
+/// Every category, ordered for display. Build the tree from `parent_id`.
+#[utoipa::path(
+    get,
+    path = "/categories",
+    tag = "catalog",
+    responses((status = 200, description = "All categories", body = Vec<Category>)),
+)]
 async fn list_categories(State(state): State<AppState>) -> Result<Json<Vec<Category>>, AppError> {
     Ok(Json(categories::list(&state.db).await?))
 }

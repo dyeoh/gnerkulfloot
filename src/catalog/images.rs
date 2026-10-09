@@ -95,7 +95,7 @@ fn encode_webp(img: &DynamicImage) -> Bytes {
 }
 
 /// An image as shown to API clients, with ready-to-use URLs.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct ImageView {
     pub id: Uuid,
     pub sku_id: Option<Uuid>,
@@ -106,7 +106,7 @@ pub struct ImageView {
     pub urls: ImageUrls,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct ImageUrls {
     pub large: String,
     pub thumb: String,

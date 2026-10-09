@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use super::{CatalogError, double_option, map_unique, require_name, slugify, validate_slug};
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct Category {
     pub id: Uuid,
     pub parent_id: Option<Uuid>,
