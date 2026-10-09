@@ -196,8 +196,6 @@ async fn start_payment(
     responses(
         (status = 200, description = "The order, after checking", body = OrderView),
         (status = 404, response = NotFound),
-        (status = 502, description = "`payment_provider_error`: the provider couldn't be reached; retry",
-            body = Problem, content_type = "application/problem+json"),
     ),
 )]
 async fn check_payment(
