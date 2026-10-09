@@ -10,12 +10,29 @@ pub mod inventory;
 pub mod orders;
 pub mod quote;
 
+use std::sync::Arc;
+
 use axum::http::StatusCode;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use uuid::Uuid;
 
-use crate::{error::AppError, money::MoneyError, shipping::ShippingError};
+use crate::{
+    config::{CheckoutConfig, ShopConfig, TaxConfig},
+    error::AppError,
+    money::MoneyError,
+    shipping::{ShippingAdapter, ShippingError},
+};
+
+/// What pricing a basket depends on besides the database: the config sections
+/// it reads and the shipping adapters it asks for options. Borrowed, so
+/// handlers build one per request from shared state at no cost.
+pub struct Pricing<'a> {
+    pub shop: &'a ShopConfig,
+    pub checkout: &'a CheckoutConfig,
+    pub tax: &'a TaxConfig,
+    pub shipping: &'a [Arc<dyn ShippingAdapter>],
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum CheckoutError {

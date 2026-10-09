@@ -7,6 +7,7 @@ use std::sync::Arc;
 use sqlx::PgPool;
 
 use crate::{
+    checkout::Pricing,
     config::Config,
     mail::{self, MailAdapter},
     payments::{self, PaymentAdapter},
@@ -51,5 +52,15 @@ impl AppState {
             payments,
             mail,
         })
+    }
+
+    /// The config and adapters that pricing a basket needs.
+    pub fn pricing(&self) -> Pricing<'_> {
+        Pricing {
+            shop: &self.config.shop,
+            checkout: &self.config.checkout,
+            tax: &self.config.tax,
+            shipping: &self.shipping,
+        }
     }
 }

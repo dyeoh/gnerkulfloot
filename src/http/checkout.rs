@@ -43,7 +43,7 @@ pub fn order_routes() -> Router<AppState> {
 }
 
 async fn quote_basket(State(state): State<AppState>, Json(body): Json<QuoteRequest>) -> Result<Json<Quote>, AppError> {
-    Ok(Json(quote::quote(&state, body).await?))
+    Ok(Json(quote::quote(&state.db, &state.pricing(), body).await?))
 }
 
 /// Send an `Idempotency-Key` header (e.g. a UUID made when the shopper
@@ -60,7 +60,7 @@ async fn create_order(
         .map(|v| v.to_str())
         .transpose()
         .map_err(|_| AppError::BadRequest("Idempotency-Key must be ASCII".into()))?;
-    let placement = orders::place(&state, body, user.map(|u| u.id), key).await?;
+    let placement = orders::place(&state.db, &state.pricing(), body, user.map(|u| u.id), key).await?;
     Ok(match placement {
         Placement::Created(body) => (StatusCode::CREATED, Json(body)).into_response(),
         Placement::Replayed(body) => (

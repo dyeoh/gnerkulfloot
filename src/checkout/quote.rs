@@ -5,13 +5,13 @@ use std::collections::HashMap;
 
 use iso_currency::Currency;
 use serde::{Deserialize, Serialize};
+use sqlx::PgPool;
 use uuid::Uuid;
 
-use super::CheckoutError;
+use super::{CheckoutError, Pricing};
 use crate::{
     money::Money,
     shipping::{self, Destination, ShipmentRequest, ShippingOption},
-    state::AppState,
     tax::{self, TaxRate},
 };
 
@@ -108,10 +108,9 @@ pub(crate) fn merge_lines(
 /// # Errors
 /// `Unavailable` for a SKU that isn't for sale in this currency,
 /// `UnknownShippingOption` if the chosen option doesn't apply.
-pub async fn quote(state: &AppState, req: QuoteRequest) -> Result<Quote, CheckoutError> {
-    let cfg = &state.config;
-    let currency = req.currency.unwrap_or(cfg.shop.default_currency);
-    let lines = merge_lines(&req.lines, cfg.checkout.max_lines, cfg.checkout.max_quantity)?;
+pub async fn quote(db: &PgPool, pricing: &Pricing<'_>, req: QuoteRequest) -> Result<Quote, CheckoutError> {
+    let currency = req.currency.unwrap_or(pricing.shop.default_currency);
+    let lines = merge_lines(&req.lines, pricing.checkout.max_lines, pricing.checkout.max_quantity)?;
     let destination = req.destination.normalized().map_err(CheckoutError::InvalidInput)?;
 
     let ids: Vec<Uuid> = lines.iter().map(|l| l.sku_id).collect();
@@ -125,12 +124,12 @@ pub async fn quote(state: &AppState, req: QuoteRequest) -> Result<Quote, Checkou
         &ids,
         currency.code()
     )
-    .fetch_all(&state.db)
+    .fetch_all(db)
     .await?;
     let by_id: HashMap<Uuid, _> = rows.into_iter().map(|r| (r.id, r)).collect();
 
-    let rate = tax::resolve(&state.db, &cfg.tax, &destination).await?;
-    let inclusive = cfg.tax.prices_include_tax;
+    let rate = tax::resolve(db, pricing.tax, &destination).await?;
+    let inclusive = pricing.tax.prices_include_tax;
 
     let mut quote_lines = Vec::with_capacity(lines.len());
     let mut weight_g: i64 = 0;
@@ -152,7 +151,7 @@ pub async fn quote(state: &AppState, req: QuoteRequest) -> Result<Quote, Checkou
             sku_name: row.name.clone(),
             quantity: line.quantity,
             unit_price,
-            tax: tax::tax_on(subtotal, rate.rate_bp, inclusive, cfg.tax.rounding)?,
+            tax: tax::tax_on(subtotal, rate.rate_bp, inclusive, pricing.tax.rounding)?,
             subtotal,
             in_stock: row.stock_available >= line.quantity,
         });
@@ -165,7 +164,7 @@ pub async fn quote(state: &AppState, req: QuoteRequest) -> Result<Quote, Checkou
         weight_g,
         subtotal,
     };
-    let shipping_options = shipping::quote_all(&state.shipping, &shipment).await?;
+    let shipping_options = shipping::quote_all(pricing.shipping, &shipment).await?;
     let shipping = match &req.shipping_option_id {
         Some(id) => Some(
             shipping_options
@@ -186,7 +185,7 @@ pub async fn quote(state: &AppState, req: QuoteRequest) -> Result<Quote, Checkou
         shipping,
         rate,
         inclusive,
-        cfg.tax.rounding,
+        pricing.tax.rounding,
     )
 }
 

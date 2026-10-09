@@ -12,7 +12,7 @@ use time::{Duration, OffsetDateTime};
 use uuid::Uuid;
 
 use super::{
-    Address, CheckoutError, inventory,
+    Address, CheckoutError, Pricing, inventory,
     quote::{self, LineInput, QuoteRequest},
 };
 use crate::{
@@ -22,7 +22,6 @@ use crate::{
     mail::OrderEmail,
     money::Money,
     shipping::ShippingOption,
-    state::AppState,
 };
 
 const IDEMPOTENCY_SCOPE: &str = "orders";
@@ -142,7 +141,8 @@ fn validate_idempotency_key(key: &str) -> Result<(), CheckoutError> {
 /// nothing ships to the address, `IdempotencyMismatch` when a key is reused
 /// for a different request.
 pub async fn place(
-    state: &AppState,
+    db: &PgPool,
+    pricing: &Pricing<'_>,
     req: NewOrder,
     customer_id: Option<Uuid>,
     idempotency_key: Option<&str>,
@@ -155,7 +155,7 @@ pub async fn place(
     // Fast path for retries: replay before re-pricing, so a retry still gets
     // its original order even if, say, a product was archived since.
     if let Some(key) = idempotency_key
-        && let Some(replay) = find_replay(&mut *state.db.acquire().await?, key, &request_hash).await?
+        && let Some(replay) = find_replay(&mut *db.acquire().await?, key, &request_hash).await?
     {
         return Ok(Placement::Replayed(replay));
     }
@@ -170,7 +170,8 @@ pub async fn place(
     }
 
     let quote = quote::quote(
-        state,
+        db,
+        pricing,
         QuoteRequest {
             currency: req.currency,
             lines: req.lines.clone(),
@@ -181,7 +182,7 @@ pub async fn place(
     .await?;
     let shipping = quote.shipping.clone().ok_or(CheckoutError::ShippingUnavailable)?;
 
-    let mut tx = state.db.begin().await?;
+    let mut tx = db.begin().await?;
 
     if let Some(key) = idempotency_key {
         // If another request with this key is in flight, this insert waits for
@@ -215,7 +216,7 @@ pub async fn place(
     OsRng.fill_bytes(&mut token_bytes);
     let access_token = format!("ord_{}", URL_SAFE_NO_PAD.encode(token_bytes));
     let id = Uuid::now_v7();
-    let expires_at = OffsetDateTime::now_utc() + Duration::minutes(state.config.checkout.payment_window_minutes);
+    let expires_at = OffsetDateTime::now_utc() + Duration::minutes(pricing.checkout.payment_window_minutes);
     let shipping_amount = shipping.price.amount;
 
     sqlx::query!(
