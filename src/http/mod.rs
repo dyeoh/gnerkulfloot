@@ -109,3 +109,31 @@ fn with_limit(
     };
     router.route_layer(middleware::from_fn_with_state(limit, ratelimit::enforce))
 }
+
+#[cfg(test)]
+mod tests {
+    /// `OpenApiRouter::route` adds a route the spec never hears about, so a
+    /// handler registered that way would work but be missing from the docs.
+    /// Every resource module must use `.routes(routes!(…))` instead.
+    #[test]
+    fn resource_routes_are_registered_with_routes_macro() {
+        let modules = [
+            ("admin_catalog.rs", include_str!("admin_catalog.rs")),
+            ("admin_orders.rs", include_str!("admin_orders.rs")),
+            ("admin_shipping.rs", include_str!("admin_shipping.rs")),
+            ("admin_users.rs", include_str!("admin_users.rs")),
+            ("auth.rs", include_str!("auth.rs")),
+            ("catalog.rs", include_str!("catalog.rs")),
+            ("checkout.rs", include_str!("checkout.rs")),
+            ("health.rs", include_str!("health.rs")),
+            ("payments.rs", include_str!("payments.rs")),
+            ("setup.rs", include_str!("setup.rs")),
+        ];
+        for (name, source) in modules {
+            assert!(
+                !source.contains(".route("),
+                "src/http/{name} registers a route with `.route(`; use `.routes(routes!(handler))` so it's documented"
+            );
+        }
+    }
+}
