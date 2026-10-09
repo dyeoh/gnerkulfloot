@@ -99,7 +99,14 @@ async fn start_payment(
     headers: HeaderMap,
 ) -> Result<(StatusCode, Json<PaymentView>), AppError> {
     let token = order_token(&headers, q);
-    let payment = payments::start(&state, id, token.as_deref(), user.as_ref()).await?;
+    let payment = payments::start(
+        &state.db,
+        state.payments.as_deref(),
+        id,
+        token.as_deref(),
+        user.as_ref(),
+    )
+    .await?;
     Ok((StatusCode::CREATED, Json(payment)))
 }
 
@@ -117,7 +124,7 @@ async fn check_payment(
     let token = order_token(&headers, q);
     // Viewing first: only someone who may see the order can make us call the provider.
     orders::view(&state.db, id, token.as_deref(), user.as_ref()).await?;
-    payments::check(&state, id).await?;
+    payments::check(&state.db, state.payments.as_deref(), id).await?;
     Ok(Json(
         orders::view(&state.db, id, token.as_deref(), user.as_ref()).await?,
     ))

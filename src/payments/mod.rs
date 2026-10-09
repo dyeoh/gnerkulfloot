@@ -32,7 +32,6 @@ use crate::{
     jobs::{self, Job},
     mail::OrderEmail,
     money::Money,
-    state::AppState,
 };
 
 /// Pending payments older than this are re-checked with the provider, in case
@@ -197,15 +196,16 @@ pub async fn for_order(db: &PgPool, order_id: Uuid) -> Result<Vec<PaymentView>, 
 /// longer awaiting payment, `NotFound` (via `Checkout`) for callers who can't
 /// see the order.
 pub async fn start(
-    state: &AppState,
+    db: &PgPool,
+    adapter: Option<&dyn PaymentAdapter>,
     order_id: Uuid,
     token: Option<&str>,
     user: Option<&User>,
 ) -> Result<PaymentView, PayError> {
-    let adapter = state.payments.clone().ok_or(PayError::Disabled)?;
-    let order = orders::view(&state.db, order_id, token, user).await?;
+    let adapter = adapter.ok_or(PayError::Disabled)?;
+    let order = orders::view(db, order_id, token, user).await?;
 
-    let mut tx = state.db.begin().await?;
+    let mut tx = db.begin().await?;
     // Lock the order so two "Pay" presses can't open two provider checkouts.
     let row = sqlx::query!(
         r#"SELECT status AS "status: OrderStatus", expires_at FROM orders WHERE id = $1 FOR UPDATE"#,
@@ -229,7 +229,7 @@ pub async fn start(
     .await?;
     if let Some(id) = existing {
         tx.commit().await?;
-        return find(&state.db, id).await;
+        return find(db, id).await;
     }
 
     let created = adapter
@@ -259,7 +259,7 @@ pub async fn start(
     .await?;
     tx.commit().await?;
     tracing::info!(order_id = %order_id, payment_id = %id, adapter = adapter.id(), "payment started");
-    find(&state.db, id).await
+    find(db, id).await
 }
 
 async fn find(db: &PgPool, payment_id: Uuid) -> Result<PaymentView, PayError> {
@@ -279,14 +279,13 @@ async fn find(db: &PgPool, payment_id: Uuid) -> Result<PaymentView, PayError> {
 /// # Errors
 /// `InvalidSignature` (→ 401) for forged or corrupted webhooks.
 pub async fn handle_webhook(
-    state: &AppState,
+    db: &PgPool,
+    adapter: Option<&dyn PaymentAdapter>,
     adapter_id: &str,
     headers: &HeaderMap,
     body: &[u8],
 ) -> Result<(), PayError> {
-    let adapter = state
-        .payments
-        .clone()
+    let adapter = adapter
         .filter(|a| a.id() == adapter_id)
         .ok_or(PayError::Checkout(CheckoutError::NotFound))?;
     let Some(provider_ref) = adapter.verify_webhook(headers, body)? else {
@@ -297,7 +296,7 @@ pub async fn handle_webhook(
         adapter.id(),
         provider_ref
     )
-    .fetch_optional(&state.db)
+    .fetch_optional(db)
     .await?;
     let payload = serde_json::from_slice(body).unwrap_or_else(|_| json!({"unparseable": true}));
     sqlx::query!(
@@ -307,10 +306,10 @@ pub async fn handle_webhook(
         payment_id,
         payload
     )
-    .execute(&state.db)
+    .execute(db)
     .await?;
     match payment_id {
-        Some(id) => refresh(state, id).await,
+        Some(id) => refresh(db, adapter, id).await,
         None => {
             tracing::warn!(adapter = adapter.id(), %provider_ref, "webhook for a payment we don't know; ignored");
             Ok(())
@@ -319,13 +318,12 @@ pub async fn handle_webhook(
 }
 
 /// Re-reads a payment's state from its provider and applies it.
-pub async fn refresh(state: &AppState, payment_id: Uuid) -> Result<(), PayError> {
-    let adapter = state.payments.clone().ok_or(PayError::Disabled)?;
+pub async fn refresh(db: &PgPool, adapter: &dyn PaymentAdapter, payment_id: Uuid) -> Result<(), PayError> {
     let p = sqlx::query!(
         "SELECT adapter, provider_ref, currency FROM payments WHERE id = $1",
         payment_id
     )
-    .fetch_one(&state.db)
+    .fetch_one(db)
     .await?;
     if p.adapter != adapter.id() {
         return Ok(()); // taken by an adapter that's no longer configured
@@ -333,7 +331,7 @@ pub async fn refresh(state: &AppState, payment_id: Uuid) -> Result<(), PayError>
     let currency = Currency::from_code(p.currency.trim())
         .ok_or_else(|| PayError::NotPayable(format!("unknown currency {}", p.currency)))?;
     let remote = adapter.fetch_status(&p.provider_ref, currency).await?;
-    apply(&state.db, payment_id, &remote).await
+    apply(db, payment_id, &remote).await
 }
 
 /// Applies a provider's verdict. Idempotent: a payment only leaves `pending`
@@ -500,10 +498,10 @@ const CHECK_INTERVAL_SECS: i32 = 3;
 /// `CHECK_INTERVAL_SECS`, and the claim is atomic, so polling tabs can't flood
 /// the provider. Provider errors are logged and left to reconciliation, so the
 /// caller can still show the order.
-pub async fn check(state: &AppState, order_id: Uuid) -> Result<(), sqlx::Error> {
-    if state.payments.is_none() {
+pub async fn check(db: &PgPool, adapter: Option<&dyn PaymentAdapter>, order_id: Uuid) -> Result<(), sqlx::Error> {
+    let Some(adapter) = adapter else {
         return Ok(());
-    }
+    };
     // Touching updated_at is the claim, and also moves the payment to the
     // back of reconciliation's queue.
     let due = sqlx::query_scalar!(
@@ -514,10 +512,10 @@ pub async fn check(state: &AppState, order_id: Uuid) -> Result<(), sqlx::Error> 
         order_id,
         f64::from(CHECK_INTERVAL_SECS)
     )
-    .fetch_all(&state.db)
+    .fetch_all(db)
     .await?;
     for id in due {
-        if let Err(e) = refresh(state, id).await {
+        if let Err(e) = refresh(db, adapter, id).await {
             tracing::warn!(payment_id = %id, error = %e, "checking payment failed; reconciliation will retry");
         }
     }
@@ -526,10 +524,10 @@ pub async fn check(state: &AppState, order_id: Uuid) -> Result<(), sqlx::Error> 
 
 /// Re-checks pending payments whose webhook may have been lost. Returns how
 /// many were checked.
-pub async fn reconcile(state: &AppState) -> Result<usize, sqlx::Error> {
-    if state.payments.is_none() {
+pub async fn reconcile(db: &PgPool, adapter: Option<&dyn PaymentAdapter>) -> Result<usize, sqlx::Error> {
+    let Some(adapter) = adapter else {
         return Ok(0);
-    }
+    };
     let due = sqlx::query_scalar!(
         "SELECT id FROM payments
          WHERE status = 'pending'
@@ -539,15 +537,15 @@ pub async fn reconcile(state: &AppState) -> Result<usize, sqlx::Error> {
         f64::from(RECONCILE_AFTER_SECS),
         RECONCILE_BATCH
     )
-    .fetch_all(&state.db)
+    .fetch_all(db)
     .await?;
     for id in &due {
         // Touch first, so a payment the provider keeps failing on moves to the
         // back of the queue instead of blocking the batch.
         sqlx::query!("UPDATE payments SET updated_at = now() WHERE id = $1", id)
-            .execute(&state.db)
+            .execute(db)
             .await?;
-        if let Err(e) = refresh(state, *id).await {
+        if let Err(e) = refresh(db, adapter, *id).await {
             tracing::warn!(payment_id = %id, error = %e, "reconciling payment failed; will retry");
         }
     }

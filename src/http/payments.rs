@@ -23,6 +23,6 @@ async fn receive_webhook(
     headers: HeaderMap,
     body: Bytes,
 ) -> Result<StatusCode, AppError> {
-    payments::handle_webhook(&state, &adapter, &headers, &body).await?;
+    payments::handle_webhook(&state.db, state.payments.as_deref(), &adapter, &headers, &body).await?;
     Ok(StatusCode::OK)
 }

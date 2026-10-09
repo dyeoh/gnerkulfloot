@@ -52,7 +52,7 @@ pub async fn run_jobs(state: &AppState) {
 /// retried next pass.
 pub async fn run_once(state: &AppState) {
     // Before expiring orders, so a payment that landed just in time counts.
-    if let Err(e) = payments::reconcile(state).await {
+    if let Err(e) = payments::reconcile(&state.db, state.payments.as_deref()).await {
         tracing::error!(error = %e, "reconciling payments failed");
     }
     match orders::expire_due(&state.db).await {
