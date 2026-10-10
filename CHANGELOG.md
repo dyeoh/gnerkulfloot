@@ -9,4 +9,10 @@ Entries are generated from commit messages by release-plz; see AGENTS.md
 
 ## [Unreleased]
 
+## [0.1.2](https://github.com/dyeoh/gnerkulfloot/compare/v0.1.1...v0.1.2) - 2026-10-10
+
+### Added
+
+- *(orders)* let staff mark paid orders as sent ([#3](https://github.com/dyeoh/gnerkulfloot/pull/3))
+
 ## [0.1.1](https://github.com/dyeoh/gnerkulfloot/compare/v0.1.0...v0.1.1) - 2026-10-09
