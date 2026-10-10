@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, number, status AS \"status: OrderStatus\", email, currency, subtotal_amount, shipping_amount,\n                  tax_amount, total_amount, prices_include_tax, tax_name, tax_rate_bp, shipping_option,\n                  shipping_address, notes, paid_via, expires_at, paid_at, cancelled_at, created_at\n           FROM orders WHERE id = $1",
+  "query": "SELECT id, number, status AS \"status: OrderStatus\", email, currency, subtotal_amount, shipping_amount,\n                  tax_amount, total_amount, prices_include_tax, tax_name, tax_rate_bp, shipping_option,\n                  shipping_address, notes, paid_via, expires_at, paid_at, cancelled_at, fulfilled_at, created_at\n           FROM orders WHERE id = $1",
   "describe": {
     "columns": [
       {
@@ -100,6 +100,11 @@
       },
       {
         "ordinal": 19,
+        "name": "fulfilled_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 20,
         "name": "created_at",
         "type_info": "Timestamptz"
       }
@@ -129,8 +134,9 @@
       false,
       true,
       true,
+      true,
       false
     ]
   },
-  "hash": "15a1ce4509dcbc97f608db4e5fe34e7c4585ceafefebede851cae834b74d2fc2"
+  "hash": "d11d0f44ac6323520a660dc3be02b21bdfe78f890af97c3c9be22ffa07f8182d"
 }

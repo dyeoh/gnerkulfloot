@@ -24,6 +24,7 @@ pub fn routes() -> OpenApiRouter<AppState> {
         .routes(routes!(get_order))
         .routes(routes!(cancel_order))
         .routes(routes!(mark_order_paid))
+        .routes(routes!(fulfil_order))
 }
 
 /// An order as staff see it: with its payments and any reason it needs attention.
@@ -150,4 +151,32 @@ async fn mark_order_paid(
     payments::mark_paid_manually(&state.db, id).await?;
     tracing::info!(order_id = %id, by = %user.id, "order marked paid by staff");
     Ok(Json(admin_order(&state, id).await?))
+}
+
+/// Mark an order sent
+///
+/// Records that a paid order has been packed and sent to the customer.
+#[utoipa::path(
+    post,
+    path = "/admin/orders/{id}/fulfil",
+    tag = "admin-orders",
+    params(("id" = Uuid, Path, description = "Order id")),
+    security(("bearer" = [])),
+    responses(
+        (status = 200, description = "The sent order", body = OrderView),
+        (status = 401, response = Unauthorized),
+        (status = 403, response = Forbidden),
+        (status = 404, response = NotFound),
+        (status = 409, description = "Only paid orders can be marked sent",
+            body = Problem, content_type = "application/problem+json"),
+    ),
+)]
+async fn fulfil_order(
+    State(state): State<AppState>,
+    StaffUser(user): StaffUser,
+    Path(id): Path<Uuid>,
+) -> Result<Json<OrderView>, AppError> {
+    let order = orders::fulfil(&state.db, id).await?;
+    tracing::info!(order_id = %id, by = %user.id, "order marked sent");
+    Ok(Json(order))
 }

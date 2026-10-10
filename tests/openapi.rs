@@ -55,6 +55,7 @@ const OPERATIONS: &[&str] = &[
     "GET /v1/admin/orders/{id}",
     "POST /v1/admin/orders/{id}/cancel",
     "POST /v1/admin/orders/{id}/mark-paid",
+    "POST /v1/admin/orders/{id}/fulfil",
     "GET /v1/admin/products",
     "POST /v1/admin/products",
     "GET /v1/admin/products/{id}",

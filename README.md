@@ -392,7 +392,7 @@ address and the chosen option; anything price-like in the request is ignored.
 |---|---|
 | `pending_payment` | placed, stock held, waiting for payment |
 | `paid` | payment confirmed by the payment provider, or by staff |
-| `fulfilled` | shipped *(arrives with fulfilment)* |
+| `fulfilled` | sent to the customer; staff mark it with `POST /v1/admin/orders/{id}/fulfil` |
 | `cancelled` | cancelled by staff before payment; stock went back on sale |
 | `expired` | not paid within `checkout.payment_window_minutes`; stock went back on sale |
 
