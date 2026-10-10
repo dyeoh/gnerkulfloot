@@ -413,6 +413,33 @@ async fn staff_cancel_unpaid_orders(db: PgPool) {
 }
 
 #[sqlx::test]
+async fn staff_mark_paid_orders_sent(db: PgPool) {
+    let s = shop(db, common::config(), 5).await;
+    let res = place(&s, order(&s.sku, 1), None).await;
+    let id = res.json["order"]["id"].as_str().unwrap();
+    let fulfil = format!("/v1/admin/orders/{id}/fulfil");
+
+    let unpaid = send(&s.app, "POST", &fulfil, Some(&s.admin), None).await;
+    assert_eq!(unpaid.status, StatusCode::CONFLICT);
+
+    let paid = format!("/v1/admin/orders/{id}/mark-paid");
+    assert_eq!(
+        send(&s.app, "POST", &paid, Some(&s.admin), None).await.status,
+        StatusCode::OK
+    );
+
+    let sent = send(&s.app, "POST", &fulfil, Some(&s.admin), None).await;
+    assert_eq!(sent.status, StatusCode::OK);
+    assert_eq!(sent.json["status"], "fulfilled");
+    assert!(sent.json["fulfilled_at"].is_string());
+    assert_eq!(stock(&s.db).await, 4, "sending doesn't touch stock");
+    assert_eq!(
+        send(&s.app, "POST", &fulfil, Some(&s.admin), None).await.status,
+        StatusCode::CONFLICT
+    );
+}
+
+#[sqlx::test]
 async fn orders_are_priced_by_the_server_and_validated(db: PgPool) {
     let s = shop(db, common::config(), 5).await;
 

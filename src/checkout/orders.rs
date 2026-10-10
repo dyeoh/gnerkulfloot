@@ -79,6 +79,9 @@ pub struct OrderView {
     pub paid_at: Option<OffsetDateTime>,
     #[serde(with = "time::serde::rfc3339::option")]
     pub cancelled_at: Option<OffsetDateTime>,
+    /// When staff marked it sent.
+    #[serde(with = "time::serde::rfc3339::option")]
+    pub fulfilled_at: Option<OffsetDateTime>,
     #[serde(with = "time::serde::rfc3339")]
     pub created_at: OffsetDateTime,
 }
@@ -321,7 +324,7 @@ pub async fn load(conn: &mut PgConnection, id: Uuid) -> Result<OrderView, Checko
     let o = sqlx::query!(
         r#"SELECT id, number, status AS "status: OrderStatus", email, currency, subtotal_amount, shipping_amount,
                   tax_amount, total_amount, prices_include_tax, tax_name, tax_rate_bp, shipping_option,
-                  shipping_address, notes, paid_via, expires_at, paid_at, cancelled_at, created_at
+                  shipping_address, notes, paid_via, expires_at, paid_at, cancelled_at, fulfilled_at, created_at
            FROM orders WHERE id = $1"#,
         id
     )
@@ -376,6 +379,7 @@ pub async fn load(conn: &mut PgConnection, id: Uuid) -> Result<OrderView, Checko
         expires_at: o.expires_at,
         paid_at: o.paid_at,
         cancelled_at: o.cancelled_at,
+        fulfilled_at: o.fulfilled_at,
         created_at: o.created_at,
     })
 }
@@ -430,6 +434,39 @@ pub async fn cancel(db: &PgPool, id: Uuid) -> Result<OrderView, CheckoutError> {
     inventory::release(&mut tx, &[id]).await?;
     sqlx::query!(
         "UPDATE orders SET status = 'cancelled', cancelled_at = now(), updated_at = now() WHERE id = $1",
+        id
+    )
+    .execute(&mut *tx)
+    .await?;
+    let order = load(&mut tx, id).await?;
+    tx.commit().await?;
+    Ok(order)
+}
+
+/// Marks a paid order as sent to the customer.
+///
+/// # Errors
+/// `InvalidState` if the order isn't paid (or was already sent).
+pub async fn fulfil(db: &PgPool, id: Uuid) -> Result<OrderView, CheckoutError> {
+    let mut tx = db.begin().await?;
+    let status = sqlx::query_scalar!(
+        r#"SELECT status AS "status: OrderStatus" FROM orders WHERE id = $1 FOR UPDATE"#,
+        id
+    )
+    .fetch_optional(&mut *tx)
+    .await?
+    .ok_or(CheckoutError::NotFound)?;
+    if status != OrderStatus::Paid {
+        return Err(CheckoutError::InvalidState(format!(
+            "only paid orders can be marked sent; this one is {}",
+            serde_json::to_value(status)
+                .expect("status serializes")
+                .as_str()
+                .unwrap_or("?")
+        )));
+    }
+    sqlx::query!(
+        "UPDATE orders SET status = 'fulfilled', fulfilled_at = now(), updated_at = now() WHERE id = $1",
         id
     )
     .execute(&mut *tx)
